@@ -1,0 +1,40 @@
+<?php
+
+return [
+    'title' => 'StokflowKP — Intégration Entreprise',
+    'sidebar_title' => 'Le nouveau standard pour les <span class="text-primary">dukas modernes.</span>',
+    'sidebar_subtitle' => 'Connectez votre inventaire, vos ventes et le recouvrement de dettes sur une seule plateforme.',
+    'plan_active' => 'PLAN ACTIF',
+    'data_encrypted' => 'Données Chiffrées',
+    'plan_access' => 'Accès complet aux outils de qualité entreprise.',
+    'label_stores' => 'MAGASINS',
+    'included' => 'Inclus',
+    'label_status' => 'STATUT',
+    'trial_days' => 'Essai de 14 Jours',
+    'footer_copyright' => '© 2026 Technologie StokflowKP. Smartbiz Solutions Tanzanie.',
+    
+    'form_title' => 'Commencer',
+    'form_subtitle' => 'Pas de carte de crédit requise. Configuration rapide.',
+    'label_business_name' => 'Nom de l\'Entreprise',
+    'placeholder_business_name' => 'ex. Metro Retailers',
+    'label_full_name' => 'Nom Complet',
+    'placeholder_full_name' => 'Jean Dupont',
+    'label_email' => 'Adresse Email',
+    'placeholder_email' => 'jean@example.com',
+    'label_password' => 'Mot de passe',
+    'label_confirm_password' => 'Confirmer',
+    'btn_submit' => 'Activer Mon Adhésion',
+    'agreement_text' => 'En vous inscrivant, vous acceptez nos :terms et :privacy.',
+    'terms' => 'Conditions',
+    'privacy' => 'Confidentialité',
+    
+    // JS Overlay Messages
+    'status_init_title' => 'Initialisation de la Sécurité',
+    'status_init_sub' => 'Sécurisation de votre environnement professionnel...',
+    'status_1_title' => 'Sécurisation des Données',
+    'status_1_sub' => 'Établissement d\'une connexion chiffrée...',
+    'status_2_title' => 'Optimisation du Grand Livre',
+    'status_2_sub' => 'Préparation du système de gestion des stocks...',
+    'status_3_title' => 'Finalisation de l\'Environnement',
+    'status_3_sub' => 'Prêt à lancer votre entreprise...',
+];

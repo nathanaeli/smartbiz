@@ -1,0 +1,371 @@
+# Duka Overview & Analytics API Documentation
+
+This document provides comprehensive documentation for the Duka Overview API that delivers detailed analytics, financial insights, and growth metrics for individual dukas.
+
+## Base URL
+```
+/api/tenant/duka/{dukaId}/overview
+```
+
+## Authentication
+All endpoints require authentication with a user that has the 'tenant' role.
+
+---
+
+## Get Duka Overview & Analytics
+
+### Endpoint
+```
+GET /api/tenant/duka/{dukaId}/overview
+```
+
+### Description
+Retrieve comprehensive analytics and insights for a specific duka including financial performance, product analytics, customer metrics, cash flow analysis, and growth indicators.
+
+### URL Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `dukaId` | integer | Yes | The ID of the duka to analyze |
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `start_date` | string | No | Analysis start date (Y-m-d format, default: 30 days ago) |
+| `end_date` | string | No | Analysis end date (Y-m-d format, default: today) |
+
+### Example Request
+```bash
+GET /api/tenant/duka/1/overview?start_date=2024-01-01&end_date=2024-01-31
+```
+
+### Success Response (200)
+```json
+{
+    "success": true,
+    "data": {
+        "duka_info": {
+            "id": 1,
+            "name": "Main Store",
+            "location": "Downtown Plaza",
+            "manager_name": "John Manager",
+            "status": "active",
+            "created_at": "2023-06-15",
+            "period": {
+                "start_date": "2024-01-01",
+                "end_date": "2024-01-31",
+                "days": 31
+            }
+        },
+
+        "financial_summary": {
+            "current_period": {
+                "revenue": 125000.00,
+                "profit": 35000.00,
+                "profit_margin": 28.0,
+                "transactions": 150,
+                "average_order_value": 833.33,
+                "cash_flow": {
+                    "income": 130000.00,
+                    "expenses": 95000.00,
+                    "net": 35000.00
+                }
+            },
+            "previous_period": {
+                "revenue": 98000.00,
+                "profit": 28000.00,
+                "profit_margin": 28.57,
+                "transactions": 120,
+                "average_order_value": 816.67,
+                "cash_flow": {
+                    "income": 102000.00,
+                    "expenses": 74000.00,
+                    "net": 28000.00
+                }
+            },
+            "growth_metrics": {
+                "revenue_growth": 27.55,
+                "profit_growth": 25.0,
+                "transaction_growth": 25.0,
+                "aov_growth": 2.04,
+                "cash_flow_growth": 25.0,
+                "weekly_growth": 15.5
+            }
+        },
+
+        "product_analytics": {
+            "summary": {
+                "total_products": 250,
+                "active_products": 220,
+                "inactive_products": 30,
+                "low_stock_products": 15,
+                "out_of_stock_products": 5,
+                "stock_health_score": 80.0
+            },
+            "inventory_value": {
+                "total_cost_value": 500000.00,
+                "total_selling_value": 750000.00,
+                "potential_profit": 250000.00,
+                "profit_margin_potential": 50.0
+            },
+            "top_selling_products": [
+                {
+                    "product_id": 15,
+                    "product_name": "Premium Coffee Beans",
+                    "total_quantity_sold": 120,
+                    "total_revenue": 24000.00,
+                    "average_selling_price": 200.00
+                },
+                {
+                    "product_id": 23,
+                    "product_name": "Organic Tea Pack",
+                    "total_quantity_sold": 85,
+                    "total_revenue": 17000.00,
+                    "average_selling_price": 200.00
+                }
+            ]
+        },
+
+        "customer_analytics": {
+            "total_customers": 450,
+            "active_customers": 180,
+            "new_customers": 25,
+            "returning_customers": 155,
+            "customer_retention_rate": 86.11,
+            "customer_acquisition_rate": 5.56
+        },
+
+        "loan_analytics": {
+            "total_loans": 12,
+            "total_loan_amount": 45000.00,
+            "outstanding_loans": 3,
+            "outstanding_amount": 8500.00,
+            "loan_collection_rate": 81.11,
+            "average_loan_size": 3750.00
+        },
+
+        "performance_indicators": {
+            "growth_score": 78.5,
+            "growth_status": "Excellent Growth",
+            "status_color": "success",
+            "key_insights": [
+                "Revenue is growing",
+                "Profitability is improving",
+                "Positive cash flow",
+                "15 products need restocking",
+                "Weekly performance is improving"
+            ]
+        },
+
+        "trend_analysis": {
+            "daily_sales": [
+                {
+                    "date": "2024-01-01",
+                    "revenue": 4200.00,
+                    "transactions": 5,
+                    "average_transaction": 840.00
+                },
+                {
+                    "date": "2024-01-02",
+                    "revenue": 3800.00,
+                    "transactions": 4,
+                    "average_transaction": 950.00
+                }
+            ],
+            "cash_flow_by_category": [
+                {
+                    "category": "Sales",
+                    "income": 125000.00,
+                    "expenses": 0.00,
+                    "net": 125000.00
+                },
+                {
+                    "category": "Operations",
+                    "income": 0.00,
+                    "expenses": 25000.00,
+                    "net": -25000.00
+                },
+                {
+                    "category": "Marketing",
+                    "income": 0.00,
+                    "expenses": 5000.00,
+                    "net": -5000.00
+                }
+            ]
+        }
+    }
+}
+```
+
+---
+
+## Analytics Features
+
+### 1. Financial Summary
+- **Revenue Analysis**: Total sales revenue with growth comparison
+- **Profit Metrics**: Gross profit, profit margin, and profitability trends
+- **Transaction Analysis**: Number of sales and average order value
+- **Period Comparison**: Current vs previous period performance
+
+### 2. Growth Metrics
+- **Revenue Growth**: Percentage change in revenue
+- **Profit Growth**: Percentage change in profitability
+- **Transaction Growth**: Change in sales volume
+- **Cash Flow Growth**: Change in net cash flow
+- **Weekly Growth**: Week-over-week performance
+
+### 3. Product Analytics
+- **Inventory Summary**: Total, active, and inactive products
+- **Stock Health**: Low stock and out-of-stock alerts
+- **Inventory Value**: Cost value vs selling value analysis
+- **Top Performers**: Best-selling products by revenue and quantity
+- **Stock Health Score**: Overall inventory management score (0-100)
+
+### 4. Customer Analytics
+- **Customer Base**: Total registered customers
+- **Active Customers**: Customers who made purchases in the period
+- **Customer Acquisition**: New customers added
+- **Customer Retention**: Returning customers rate
+- **Retention Rate**: Percentage of active customers who are returning
+
+### 5. Loan Analytics
+- **Loan Summary**: Total loans and amounts
+- **Outstanding Loans**: Unpaid loan amounts
+- **Collection Rate**: Percentage of loans collected
+- **Average Loan Size**: Mean loan amount
+
+### 6. Performance Indicators
+- **Growth Score**: Comprehensive growth score (0-100)
+- **Growth Status**:
+  - Excellent Growth (75-100)
+  - Good Growth (50-74)
+  - Moderate Growth (25-49)
+  - Needs Attention (0-24)
+- **Key Insights**: Automated insights based on performance data
+
+### 7. Trend Analysis
+- **Daily Sales**: Day-by-day revenue and transaction data
+- **Cash Flow by Category**: Income and expenses breakdown
+- **Weekly Comparisons**: Week-over-week performance trends
+
+---
+
+## Growth Assessment Algorithm
+
+The API calculates a comprehensive **Growth Score** (0-100) using weighted metrics:
+
+| Metric | Weight | Description |
+|--------|--------|-------------|
+| Revenue Growth | 30% | Period-over-period revenue change |
+| Profit Growth | 25% | Period-over-period profit change |
+| Transaction Growth | 20% | Change in number of transactions |
+| Cash Flow Growth | 15% | Change in net cash flow |
+| Weekly Growth | 10% | Week-over-week performance |
+
+### Growth Status Determination
+- **Excellent Growth (75-100)**: Outstanding performance across all metrics
+- **Good Growth (50-74)**: Solid performance with room for improvement
+- **Moderate Growth (25-49)**: Mixed results requiring attention
+- **Needs Attention (0-24)**: Poor performance needing immediate action
+
+---
+
+## Business Intelligence Insights
+
+### Automated Insights
+The API automatically generates insights such as:
+- "Revenue is growing" / "Revenue is declining"
+- "Profitability is improving" / "Profitability is declining"
+- "Positive cash flow" / "Negative cash flow"
+- "X products need restocking" / "Stock levels are healthy"
+- "Weekly performance is improving" / "Weekly performance needs attention"
+
+### Key Performance Indicators
+- **Stock Health Score**: Based on active products vs low/out-of-stock products
+- **Customer Retention Rate**: Returning customers as percentage of active customers
+- **Loan Collection Rate**: Percentage of loan amounts collected
+- **Profit Margin**: Gross profit as percentage of revenue
+
+---
+
+## Error Responses
+
+### 403 Forbidden
+```json
+{
+    "success": false,
+    "message": "Unauthorized. Only tenants can access this endpoint."
+}
+```
+
+### 404 Not Found
+```json
+{
+    "success": false,
+    "message": "Duka not found or does not belong to this tenant."
+}
+```
+
+---
+
+## Use Cases
+
+### 1. Performance Monitoring
+Track duka performance over time and identify trends
+
+### 2. Growth Analysis
+Understand which factors are driving business growth
+
+### 3. Inventory Management
+Monitor stock levels and identify products needing attention
+
+### 4. Cash Flow Analysis
+Track income and expenses to ensure positive cash flow
+
+### 5. Customer Insights
+Understand customer behavior and retention patterns
+
+### 6. Loan Management
+Monitor loan portfolio performance and collection rates
+
+### 7. Strategic Planning
+Use growth scores and trends for business planning
+
+---
+
+## Date Range Best Practices
+
+### Short-term Analysis (7-30 days)
+- Daily performance monitoring
+- Weekly trend identification
+- Quick issue detection
+
+### Medium-term Analysis (30-90 days)
+- Monthly performance assessment
+- Seasonal trend analysis
+- Growth pattern identification
+
+### Long-term Analysis (90+ days)
+- Quarterly business review
+- Annual growth assessment
+- Strategic planning support
+
+---
+
+## Rate Limiting
+
+API endpoints may be subject to rate limiting to ensure system stability. Consider caching analytics data for frequently accessed reports.
+
+---
+
+## Data Freshness
+
+Analytics data is calculated in real-time based on:
+- Sales transactions
+- Cash flow records
+- Product inventory
+- Customer activities
+- Loan payments
+
+For optimal performance, consider caching results for periods longer than 7 days.

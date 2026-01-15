@@ -1,0 +1,27 @@
+<?php
+
+return [
+    'manage_customers' => 'Manage Customers',
+    'add_new_customer' => 'Add New Customer',
+    'import_excel' => 'Import from Excel',
+    'total_customers' => 'Total: :count customers',
+    'name' => 'Name',
+    'email' => 'Email',
+    'phone' => 'Phone',
+    'duka' => 'Duka',
+    'created_by' => 'Created By',
+    'created_at' => 'Created At',
+    'actions' => 'Actions',
+    'no_customers_found' => 'No Customers Found',
+    'no_customers_desc' => 'There are no customers in your assigned dukas.',
+    'cancel' => 'Cancel',
+    'edit_customer' => 'Edit Customer',
+    'update_customer' => 'Update Customer',
+    'delete_customer' => 'Delete Customer',
+    'delete_confirm' => 'Are you sure you want to delete :name?',
+    'delete_warning' => 'Warning: This action cannot be undone.',
+    'address' => 'Address',
+    'select_duka' => 'Select Duka',
+    'auto_selected_duka' => 'Automatically selected (only duka assigned)',
+    'add_customer' => 'Add Customer',
+];

@@ -1,0 +1,40 @@
+<?php
+
+return [
+    'title' => 'StokflowKP — Enterprise Onboarding',
+    'sidebar_title' => 'The new standard for <span class="text-primary">modern dukas.</span>',
+    'sidebar_subtitle' => 'Connect your inventory, sales, and debt collection into one platform.',
+    'plan_active' => 'ACTIVE PLAN',
+    'data_encrypted' => 'Data Encrypted',
+    'plan_access' => 'Full access to enterprise-grade tools.',
+    'label_stores' => 'STORES',
+    'included' => 'Included',
+    'label_status' => 'STATUS',
+    'trial_days' => '14-Day Trial',
+    'footer_copyright' => '© 2026 StokflowKP Technology. Smartbiz Solutions Tanzania.',
+    
+    'form_title' => 'Get Started',
+    'form_subtitle' => 'No credit card required. Fast setup.',
+    'label_business_name' => 'Business Name',
+    'placeholder_business_name' => 'e.g. Metro Retailers',
+    'label_full_name' => 'Full Name',
+    'placeholder_full_name' => 'John Doe',
+    'label_email' => 'Email Address',
+    'placeholder_email' => 'john@example.com',
+    'label_password' => 'Password',
+    'label_confirm_password' => 'Confirm',
+    'btn_submit' => 'Activate My Membership',
+    'agreement_text' => 'By signing up, you agree to our :terms and :privacy.',
+    'terms' => 'Terms',
+    'privacy' => 'Privacy',
+    
+    // JS Overlay Messages
+    'status_init_title' => 'Initializing Security',
+    'status_init_sub' => 'Securing your business environment...',
+    'status_1_title' => 'Securing Data',
+    'status_1_sub' => 'Establishing encrypted connection...',
+    'status_2_title' => 'Optimizing Ledger',
+    'status_2_sub' => 'Preparing inventory management system...',
+    'status_3_title' => 'Finalizing Environment',
+    'status_3_sub' => 'Ready to launch your enterprise...',
+];

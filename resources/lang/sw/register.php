@@ -1,0 +1,40 @@
+<?php
+
+return [
+    'title' => 'StokflowKP — Usajili wa Biashara',
+    'sidebar_title' => 'Kiwango kipya kwa <span class="text-primary">duka za kisasa.</span>',
+    'sidebar_subtitle' => 'Unganisha stoo yako, mauzo, na ukusanyaji wa madeni katika jukwaa moja.',
+    'plan_active' => 'MPANGO HAI',
+    'data_encrypted' => 'Data Imesimbwa',
+    'plan_access' => 'Ufikiaji kamili wa zana za kiwango cha biashara.',
+    'label_stores' => 'MADUKA',
+    'included' => 'Imejumuishwa',
+    'label_status' => 'HALI',
+    'trial_days' => 'Jaribio la Siku 14',
+    'footer_copyright' => '© 2026 Teknolojia ya StokflowKP. Smartbiz Solutions Tanzania.',
+    
+    'form_title' => 'Anza Sasa',
+    'form_subtitle' => 'Hakuna kadi ya mkopo inayohitajika. Usanidi wa haraka.',
+    'label_business_name' => 'Jina la Biashara',
+    'placeholder_business_name' => 'mf. Metro Retailers',
+    'label_full_name' => 'Jina Kamili',
+    'placeholder_full_name' => 'Juma Juma',
+    'label_email' => 'Barua Pepe',
+    'placeholder_email' => 'juma@example.com',
+    'label_password' => 'Nenosiri',
+    'label_confirm_password' => 'Thibitisha',
+    'btn_submit' => 'Amilisha Uwanachama Wangu',
+    'agreement_text' => 'Kwa kujisajili, unakubali :terms na :privacy zetu.',
+    'terms' => 'Masharti',
+    'privacy' => 'Faragha',
+    
+    // JS Overlay Messages
+    'status_init_title' => 'Kuanzisha Usalama',
+    'status_init_sub' => 'Kulinda mazingira ya biashara yako...',
+    'status_1_title' => 'Kulinda Data',
+    'status_1_sub' => 'Kuanzisha muunganisho uliosimbwa...',
+    'status_2_title' => 'Kuboresha Leja',
+    'status_2_sub' => 'Kuandaa mfumo wa usimamizi wa stoo...',
+    'status_3_title' => 'Kukamilisha Mazingira',
+    'status_3_sub' => 'Tayari kuzindua biashara yako...',
+];

@@ -1,0 +1,27 @@
+<?php
+
+return [
+    'manage_customers' => 'Gérer les clients',
+    'add_new_customer' => 'Ajouter un nouveau client',
+    'import_excel' => 'Importer depuis Excel',
+    'total_customers' => 'Total: :count clients',
+    'name' => 'Nom',
+    'email' => 'Email',
+    'phone' => 'Téléphone',
+    'duka' => 'Duka',
+    'created_by' => 'Créé par',
+    'created_at' => 'Créé le',
+    'actions' => 'Actions',
+    'no_customers_found' => 'Aucun client trouvé',
+    'no_customers_desc' => "Il n'y a aucun client dans vos dukas assignés.",
+    'cancel' => 'Annuler',
+    'edit_customer' => 'Modifier le client',
+    'update_customer' => 'Mettre à jour le client',
+    'delete_customer' => 'Supprimer le client',
+    'delete_confirm' => 'Êtes-vous sûr de vouloir supprimer :name ?',
+    'delete_warning' => 'Attention : Cette action est irréversible.',
+    'address' => 'Adresse',
+    'select_duka' => 'Sélectionner un Duka',
+    'auto_selected_duka' => 'Sélectionné automatiquement (seul duka assigné)',
+    'add_customer' => 'Ajouter le client',
+];
