@@ -2208,50 +2208,27 @@ class TenantController extends Controller
     /**
      * Get all plans with their features.
      */
-    public function apiGetPlans(Request $request)
-    {
-
-
-        // Get all active plans with their features
+   public function apiGetPlans(Request $request)
+{
+    try {
         $plans = Plan::where('is_active', true)
-            ->with(['planFeatures'])
-            ->orderBy('price', 'asc')
-            ->get();
-
-        // Format the response
-        $formattedPlans = $plans->map(function ($plan) {
-            return [
-                'id' => $plan->id,
-                'name' => $plan->name,
-                'description' => $plan->description,
-                'price' => $plan->price,
-                'billing_cycle' => $plan->billing_cycle,
-                'max_dukas' => $plan->max_dukas,
-                'max_products' => $plan->max_products,
-                'is_active' => $plan->is_active,
-                'features' => $plan->features ?? [],
-                'plan_features' => $plan->planFeatures->map(function ($feature) {
-                    return [
-                        'id' => $feature->id,
-                        'code' => $feature->code,
-                        'name' => $feature->name,
-                        'description' => $feature->description,
-                        'value' => $feature->pivot->value ?? null,
-                    ];
-                }),
-                'created_at' => $plan->created_at,
-                'updated_at' => $plan->updated_at,
-            ];
-        });
+                     ->with('features')
+                     ->orderBy('price', 'asc')
+                     ->get();
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'plans' => $formattedPlans,
-                'total' => $formattedPlans->count(),
-            ]
-        ]);
+            'data'    => $plans
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to retrieve plans.',
+            'error'   => $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Get comprehensive duka overview with analytics and growth metrics.

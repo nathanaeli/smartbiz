@@ -912,4 +912,76 @@ class AuthController extends Controller
 
         return $userData;
     }
+
+public function registerApi(Request $request)
+{
+    $request->validate([
+        'name'          => 'required|string|max:255',
+        'email'         => 'required|string|email|unique:users',
+        'password'      => 'required|string|min:8|confirmed',
+        'business_name' => 'required|string|max:255',
+        'plan_id'       => 'required|exists:plans,id',
+    ]);
+
+    try {
+        return DB::transaction(function () use ($request) {
+            // 1. Create User
+            $user = User::create([
+                'name'     => $request->name,
+                'email'    => $request->email,
+                'password' => Hash::make($request->password),
+                'role'     => 'tenant',
+            ]);
+
+            // 2. Create Tenant
+            $tenant = Tenant::create([
+                'name'    => $request->business_name,
+                'user_id' => $user->id,
+                'status'  => 'active',
+                'slug'    => Str::slug($request->business_name) . '-' . Str::random(5),
+            ]);
+
+            $user->update(['tenant_id' => $tenant->id]);
+
+            // 3. Create Subscription
+            $plan = Plan::find($request->plan_id);
+            DukaSubscription::create([
+                'tenant_id'  => $tenant->id,
+                'plan_id'    => $plan->id,
+                'plan_name'  => $plan->name,
+                'amount'     => 0,
+                'start_date' => now(),
+                'end_date'   => now()->addDays(14),
+                'status'     => 'active',
+            ]);
+
+            // 4. Generate Token
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            // 5. Send Email (Silent fail, no logs)
+            try {
+                Mail::to($user->email)->send(new WelcomeUserMail($user, 14));
+            } catch (\Exception $e) {
+                // Fail silently: User is created even if email server is down
+            }
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Account created successfully and 14-day trial started.',
+                'data'    => [
+                    'user'         => $user,
+                    'access_token' => $token,
+                    'token_type'   => 'Bearer',
+                ]
+            ], 201);
+        });
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'Registration failed. Please try again later.',
+            'error'   => config('app.debug') ? $e->getMessage() : 'Server Error'
+        ], 500);
+    }
+}
 }

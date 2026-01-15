@@ -8,6 +8,7 @@ Route::post('/login', [App\Http\Controllers\AuthController::class, 'apiLogin']);
 Route::get('/tenant/plans', [App\Http\Controllers\TenantController::class, 'apiGetPlans']);
 Route::post('/forgot-password', [App\Http\Controllers\AuthController::class, 'apiForgotPassword']);
 Route::post('/reset-password', [App\Http\Controllers\AuthController::class, 'apiResetPassword']);
+Route::post('/register', [App\Http\Controllers\AuthController::class, 'registerApi']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/officer/dashboard/{officer}', [App\Http\Controllers\OfficerApiController::class, 'officerdashboardinformation']);
     Route::post('/officer/products', [App\Http\Controllers\OfficerApiController::class, 'apiAddProduct']);
@@ -16,12 +17,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/officer/stock', [App\Http\Controllers\OfficerApiController::class, 'apiUpdateStock']);
     Route::delete('/officer/products/{productId}', [App\Http\Controllers\OfficerApiController::class, 'apiDeleteProduct']);
     Route::post('/officer/stock', [App\Http\Controllers\OfficerApiController::class, 'apiAddStock']);
-
     Route::post('/recordpaymentforsales', [App\Http\Controllers\OfficerApiController::class, 'storeApiforSales']);
     Route::get('/officer/product-items/by-product/{productId}', [App\Http\Controllers\OfficerApiController::class, 'apiGetProductItemsByProductId']);
     Route::post('/officer/product-items', [App\Http\Controllers\OfficerApiController::class, 'apiStoreProductItem']);
     Route::post('/officer/sync', [App\Http\Controllers\OfficerApiController::class, 'sync']);
-
     Route::get('/officer/categories', [App\Http\Controllers\OfficerApiController::class, 'apiGetCategories']);
     Route::post('/officer/categories', [App\Http\Controllers\OfficerApiController::class, 'apiStoreCategory']);
     Route::put('/officer/categories/{id}', [App\Http\Controllers\OfficerApiController::class, 'apiUpdateCategory']);
