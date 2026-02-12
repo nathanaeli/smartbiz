@@ -13,12 +13,32 @@ return [
     'total_inflow' => 'Total Inflow',
     'total_outflow' => 'Total Outflow',
     'net_contribution' => 'Net Contribution',
+    'duka_details' => 'Duka Details',
+    'no_location_set' => 'No location set',
+    'no_manager' => 'No Manager',
+    'configure_branch' => 'Configure Branch',
+    'plan' => 'Plan',
+    'valid_until' => 'Valid until',
+    'available_stock' => 'Available Stock',
+    'inventory_management' => 'Inventory Management',
+    'manage_inventory_desc' => 'Manage your product catalog, update stock levels, prices, and view item details.',
+    'view_inventory' => 'View Inventory',
+    'customer_directory' => 'Customer Directory',
+    'view_customers_desc' => 'View registered customers, manage contact details, and track customer history.',
+    'manage_customers' => 'Manage Customers',
+    'service_management' => 'Service Management',
+    'configure_services_desc' => 'Configure intangible services, pricing models, and service categories for your clients.',
+    'manage_services' => 'Manage Services',
+    'reports_analysis' => 'Reports & Analysis',
+    'access_reports_desc' => 'Access detailed sales ledgers and analyze credit/aging reports.',
+    'sales_ledger' => 'Sales Ledger',
     'master_ledger' => 'Master Ledger (All Branches)',
     'records' => 'Records',
     'date' => 'Date',
     'branch' => 'Branch',
     'category' => 'Category',
     'amount' => 'Amount',
+    'dukasettings' => 'Duka Settings',
 
     // Layout strings
     'landing_page' => 'Landing Page',
@@ -45,7 +65,7 @@ return [
     'adding_shop' => 'Adding Shop',
     'privacy_policy' => 'Privacy Policy',
     'terms_of_use' => 'Terms of Use',
-    'welcome_message' => 'Hello :name! Welcome to SMARTBIZ. Manage your business efficiently.',
+    'welcome_message' => 'Hello :name! Welcome to STOCKFLOWKP. Manage your business efficiently.',
     'profile' => 'Profile',
     'privacy_setting' => 'Privacy Setting',
     'logout' => 'Logout',
@@ -58,13 +78,14 @@ return [
     'total_profit' => 'Total Profit',
     'total_loss' => 'Total Loss',
     'recent_loan_activities' => 'Recent Loan Activities',
-    'date' => 'Date',
+
     'customer' => 'Customer',
-    'amount' => 'Amount',
+
     'status' => 'Status',
     'paid' => 'Paid',
     'no_loan_activities_found' => 'No loan activities found',
     'loan_payments_will_appear_here' => 'Loan payments will appear here once available',
+    'loan_payment' => 'Loan Payment',
     'duka_performance_analytics' => 'Duka Performance Analytics',
     'duka_name' => 'Duka Name',
     'location' => 'Location',
@@ -79,7 +100,7 @@ return [
     'create_dukas_to_see_performance' => 'Create dukas to see performance analytics',
 
     // Messages page
-    'messages' => 'Messages',
+
     'new' => 'New',
     'broadcast' => 'Broadcast',
     'from' => 'From',
@@ -91,15 +112,15 @@ return [
     'you_dont_have_any_messages_yet' => 'You don\'t have any messages yet.',
 
     // Dukas page
-    'all_dukas' => 'All Dukas',
+
     'add_new_duka' => 'Add New Duka',
     'you_have_not_registered_any_duka_yet' => 'You have not registered any Duka yet.',
-    'duka_name' => 'Duka Name',
-    'location' => 'Location',
+
+
     'manager' => 'Manager',
     'active_plan' => 'Active Plan',
     'ends_on' => 'Ends On',
-    'products' => 'Products',
+
     'stocks' => 'Stocks',
     'categories' => 'Categories',
     'actions' => 'Actions',
@@ -141,7 +162,7 @@ return [
     'operating_expenses_combined' => 'Operating Expenses (Combined)',
     'total_operational_costs' => 'Total Operational Costs',
 
-     'manage_product' => 'Manage Product',
+    'manage_product' => 'Manage Product',
     'current_stock' => 'Current Stock',
     'realized_profit' => 'Realized Profit',
     'money_earned_from_sales' => 'Money earned from sales',
@@ -154,7 +175,7 @@ return [
 
     'product_name' => 'Product Name',
     'sku' => 'SKU',
-    'category' => 'Category',
+
     'select_category' => 'Select Category',
     'unit' => 'Unit',
     'select_unit' => 'Select Unit',
@@ -178,7 +199,7 @@ return [
     'value' => 'Value',
     'updated_by' => 'Updated By',
     'updated_at' => 'Updated At',
-    'actions' => 'Actions',
+
     'edit' => 'Edit',
     'no_stock_entries' => 'No stock entries found',
 
@@ -193,4 +214,8 @@ return [
 
     'edit_stock' => 'Edit Stock',
     'update_stock' => 'Update Stock',
+    'profit' => 'Profit',
+    'financial_status' => 'Financial Status',
+    'in_stock' => 'In Stock',
+    'sales' => 'Sales',
 ];

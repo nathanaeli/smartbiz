@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
-use App\Models\Customer;
 
 class Duka extends Model
 {
@@ -23,6 +22,7 @@ class Duka extends Model
         'latitude',
         'longitude',
         'status',
+        'business_type', // Added: 'product', 'service', or 'both'
     ];
 
     protected $casts = [
@@ -30,15 +30,33 @@ class Duka extends Model
         'longitude' => 'decimal:7',
     ];
 
-    // ✔ FIXED — Duka belongs to Tenant, NOT User
+    // -----------------------------------------------------------------
+    // Business Logic Helpers
+    // -----------------------------------------------------------------
+
+    /**
+     * Determine if this Duka handles physical products.
+     */
+    public function supportsProducts(): bool
+    {
+        return in_array($this->business_type, ['product', 'both']);
+    }
+
+    /**
+     * Determine if this Duka handles intangible services.
+     */
+    public function supportsServices(): bool
+    {
+        return in_array($this->business_type, ['service', 'both']);
+    }
+
+    // -----------------------------------------------------------------
+    // Relationships - Core & Subscriptions
+    // -----------------------------------------------------------------
+
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class, 'tenant_id');
-    }
-
-    public function stocks(): HasMany
-    {
-        return $this->hasMany(Stock::class);
     }
 
     public function dukaSubscriptions(): HasMany
@@ -59,15 +77,9 @@ class Duka extends Model
         return optional($this->activeSubscription)->plan;
     }
 
-    public function stockTransferItemsFrom(): HasMany
-    {
-        return $this->hasMany(StockTransferItem::class, 'from_duka_id');
-    }
-
-    public function stockTransferItemsTo(): HasMany
-    {
-        return $this->hasMany(StockTransferItem::class, 'to_duka_id');
-    }
+    // -----------------------------------------------------------------
+    // Relationships - Products & Inventory
+    // -----------------------------------------------------------------
 
     public function products(): HasMany
     {
@@ -79,7 +91,36 @@ class Duka extends Model
         return $this->belongsToMany(ProductCategory::class, 'category_duka');
     }
 
-    public function customers()
+    public function stocks(): HasMany
+    {
+        return $this->hasMany(Stock::class);
+    }
+
+    // -----------------------------------------------------------------
+    // Relationships - Services (The New Mechanism)
+    // -----------------------------------------------------------------
+
+    /**
+     * Categories specifically for services (e.g., Consultations, Repairs)
+     */
+    public function serviceCategories(): HasMany
+    {
+        return $this->hasMany(ServiceCategory::class);
+    }
+
+    /**
+     * Intangible services offered by this Duka
+     */
+    public function services(): HasMany
+    {
+        return $this->hasMany(Service::class);
+    }
+
+    // -----------------------------------------------------------------
+    // Relationships - Operations & Customers
+    // -----------------------------------------------------------------
+
+    public function customers(): HasMany
     {
         return $this->hasMany(Customer::class);
     }
@@ -94,7 +135,19 @@ class Duka extends Model
         return $this->hasMany(StockTransferItem::class, 'from_duka_id');
     }
 
+    public function stockTransferItemsFrom(): HasMany
+    {
+        return $this->hasMany(StockTransferItem::class, 'from_duka_id');
+    }
 
+    public function stockTransferItemsTo(): HasMany
+    {
+        return $this->hasMany(StockTransferItem::class, 'to_duka_id');
+    }
+
+    // -----------------------------------------------------------------
+    // Activity Log Configuration
+    // -----------------------------------------------------------------
 
     public function getActivitylogOptions(): LogOptions
     {

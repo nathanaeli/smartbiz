@@ -13,12 +13,33 @@ return [
     'total_inflow' => 'Mapato ya Jumla',
     'total_outflow' => 'Matumizi ya Jumla',
     'net_contribution' => 'Mchango wa Pato',
+    'duka_details' => 'Maelezo ya Duka',
+    'no_location_set' => 'Mahali pajawekwa',
+    'no_manager' => 'Hakuna Meneja',
+    'configure_branch' => 'Sanidi Tawi',
+    'plan' => 'Mpango',
+    'valid_until' => 'Inatumika hadi',
+    'available_stock' => 'Hisa Inayopatikana',
+    'inventory_management' => 'Usimamizi wa Hesabu',
+    'manage_inventory_desc' => 'Simamia orodha ya bidhaa zako, sasisha viwango vya hisa, bei, na tazama maelezo ya bidhaa.',
+    'view_inventory' => 'Tazama Hesabu',
+    'customer_directory' => 'Orodha ya Wateja',
+    'view_customers_desc' => 'Tazama wateja waliosajiliwa, simamia maelezo ya mawasiliano, na fuatilia historia ya mteja.',
+    'manage_customers' => 'Simamia Wateja',
+    'service_management' => 'Usimamizi wa Huduma',
+    'configure_services_desc' => 'Sanidi huduma zisizoshikika, mifano ya bei, na kategoria za huduma kwa wateja wako.',
+    'manage_services' => 'Simamia Huduma',
+    'reports_analysis' => 'Ripoti na Uchambuzi',
+    'access_reports_desc' => 'Pata leja za mauzo za kina na uchambue ripoti za mkopo/kuzeeka.',
+    'sales_ledger' => 'Leja ya Mauzo',
     'master_ledger' => 'Leja Kuu (Matawi Yote)',
     'records' => 'Rekodi',
     'date' => 'Tarehe',
     'branch' => 'Tawi',
     'category' => 'Jamii',
+
     'amount' => 'Kiasi',
+    'dukasettings' => 'Mipangilio ya Duka',
 
     // Layout strings
     'landing_page' => 'Ukurasa wa Kutua',
@@ -45,7 +66,7 @@ return [
     'adding_shop' => 'Kuongeza Duka',
     'privacy_policy' => 'Sera ya Faragha',
     'terms_of_use' => 'Masharti ya Matumizi',
-    'welcome_message' => 'Habari :name! Karibu SMARTBIZ. Simamia biashara yako kwa ufanisi.',
+    'welcome_message' => 'Habari :name! Karibu STOCKFLOWKP. Simamia biashara yako kwa ufanisi.',
     'profile' => 'Wasifu',
     'privacy_setting' => 'Mpangilio wa Faragha',
     'logout' => 'Toka',
@@ -58,13 +79,14 @@ return [
     'total_profit' => 'Jumla ya Faida',
     'total_loss' => 'Jumla ya Hasara',
     'recent_loan_activities' => 'Shughuli za Hivi Karibuni za Mkopo',
-    'date' => 'Tarehe',
+
     'customer' => 'Mteja',
-    'amount' => 'Kiasi',
+
     'status' => 'Hali',
     'paid' => 'Imelipwa',
     'no_loan_activities_found' => 'Hakuna shughuli za mkopo zilizopatikana',
     'loan_payments_will_appear_here' => 'Malipo ya mkopo yataonekana hapa mara tu yanapopatikana',
+    'loan_payment' => 'Malipo ya Mkopo',
     'duka_performance_analytics' => 'Takwimu za Utendaji wa Duka',
     'duka_name' => 'Jina la Duka',
     'location' => 'Mahali',
@@ -79,7 +101,7 @@ return [
     'create_dukas_to_see_performance' => 'Unda duka ili kuona takwimu za utendaji',
 
     // Messages page
-    'messages' => 'Ujumbe',
+
     'new' => 'Mpya',
     'broadcast' => 'Tangazo',
     'from' => 'Kutoka',
@@ -91,18 +113,19 @@ return [
     'you_dont_have_any_messages_yet' => 'Bado huna ujumbe wowote.',
 
     // Dukas page
-    'all_dukas' => 'Duka Zote',
+
     'add_new_duka' => 'Ongeza Duka Mpya',
     'you_have_not_registered_any_duka_yet' => 'Bado hujasajili duka lolote.',
-    'duka_name' => 'Jina la Duka',
-    'location' => 'Mahali',
+
+
     'manager' => 'Meneja',
     'active_plan' => 'Mpango Amilifu',
     'ends_on' => 'Inaisha Tarehe',
-    'products' => 'Bidhaa',
+
     'stocks' => 'Hisa',
     'categories' => 'Jamii',
     'actions' => 'Vitendo',
+
     'none' => 'Hakuna',
     'view' => 'Tazama',
     'change_plan' => 'Badilisha Mpango',
@@ -154,7 +177,7 @@ return [
 
     'product_name' => 'Jina la Bidhaa',
     'sku' => 'SKU',
-    'category' => 'Kundi',
+
     'select_category' => 'Chagua Kundi',
     'unit' => 'Kipimo',
     'select_unit' => 'Chagua Kipimo',
@@ -178,7 +201,7 @@ return [
     'value' => 'Thamani',
     'updated_by' => 'Ilibadilishwa na',
     'updated_at' => 'Muda wa Kubadilishwa',
-    'actions' => 'Vitendo',
+
     'edit' => 'Hariri',
     'no_stock_entries' => 'Hakuna stoo iliyosajiliwa',
 
@@ -193,4 +216,8 @@ return [
 
     'edit_stock' => 'Hariri Stoo',
     'update_stock' => 'Sasisha Stoo',
+    'profit' => 'Faida',
+    'financial_status' => 'Hali ya Kifedha',
+    'in_stock' => 'Ikopo Stoo',
+    'sales' => 'Mauzo',
 ];

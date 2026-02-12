@@ -1,28 +1,46 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AccountController;
+use App\Http\Controllers\ApiPasswordResetController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AvailablePermissionController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DukaController;
+use App\Http\Controllers\LandingPageController;
+use App\Http\Controllers\LoanPaymentController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\OfficerController;
 use App\Http\Controllers\OfficerLoanController;
 use App\Http\Controllers\PaymentController;
-use App\Http\Controllers\ProductCategoryController;
+use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
-use App\Http\Controllers\StockController;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProformaInvoiceController;
-use App\Http\Controllers\StockTransferController;
-use App\Http\Controllers\TenantCashFlowController;
-use App\Http\Controllers\LandingPageController;
 use App\Http\Controllers\ReportAnalysisController;
+use App\Http\Controllers\SaleController;
+use App\Http\Controllers\SalesofficerControllers;
+use App\Http\Controllers\StockController;
+use App\Http\Controllers\StockMovementTrendController;
+use App\Http\Controllers\StockTransferController;
+use App\Http\Controllers\SuperAdminController;
+use App\Http\Controllers\TenantCashFlowController;
+use App\Http\Controllers\TestProductController;
 
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
 
-
-
+// ==============================================================================
+// PUBLIC & STATIC PAGES
+// ==============================================================================
 Route::get('/', [LandingPageController::class, 'index'])->name('welcome');
 
+// Language Switcher
 Route::get('/lang/{locale}', function ($locale) {
     if (in_array($locale, config('app.locales'))) {
         session(['locale' => $locale]);
@@ -31,254 +49,261 @@ Route::get('/lang/{locale}', function ($locale) {
     return redirect()->back();
 })->name('lang.switch');
 
-Route::get('/policies', function () {
-    return view('policies');
-})->name('policies');
+// Legal & Static Pages
+Route::view('/policies', 'policies')->name('policies');
+Route::view('/about', 'about')->name('about');
+Route::view('/privacy', 'privacy')->name('privacy');
+Route::view('/terms', 'terms')->name('terms');
 
-Route::get('/about', function () {
-    return view('about');
-})->name('about');
+// Contact Form
+Route::get('/contact', [ContactController::class, 'index'])->name('contact');
+Route::post('/contact', [ContactController::class, 'submit'])->name('contact.submit');
 
-Route::get('/privacy', function () {
-    return view('privacy');
-})->name('privacy');
-
-Route::get('/terms', function () {
-    return view('terms');
-})->name('terms');
-
-Route::get('/contact', [App\Http\Controllers\ContactController::class, 'index'])->name('contact');
-Route::post('/contact', [App\Http\Controllers\ContactController::class, 'submit'])->name('contact.submit');
-
-// Admin routes for viewing contacts
-Route::middleware(['auth', 'super-admin'])->group(function () {
-    Route::get('/super-admin/contacts', [App\Http\Controllers\ContactController::class, 'index'])->name('super-admin.contacts.index');
-    Route::match(['post', 'patch'], '/super-admin/contacts/bulk-action', [App\Http\Controllers\ContactController::class, 'bulkAction'])->name('super-admin.contacts.bulk-action');
-    Route::get('/super-admin/contacts/{contact}', [App\Http\Controllers\ContactController::class, 'show'])->name('super-admin.contacts.show');
-    Route::post('/super-admin/contacts/{contact}/reply', [App\Http\Controllers\ContactController::class, 'reply'])->name('super-admin.contacts.reply');
-    Route::post('/super-admin/contacts/{contact}/mark-read', [App\Http\Controllers\ContactController::class, 'markAsRead'])->name('super-admin.contacts.mark-read');
+// Ping (Used by Officer App check)
+Route::get('/ping', function () {
+    return response()->json(['status' => 'ok']);
 });
+
+
+// ==============================================================================
+// AUTHENTICATION
+// ==============================================================================
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
-// routes/web.php
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::get('/coming-soon', function () {
+    return view('coming-soon');
+})->name('coming-soon');
+
 Route::get('/register/{plan?}', [AuthController::class, 'showRegistrationForm'])->name('register');
 Route::post('/register', [AuthController::class, 'register'])->name('register.post');
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// Password Reset Routes
+// Web-based Password Reset
 Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
 Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->name('password.email');
 Route::get('/reset-password/{token}', [AuthController::class, 'showResetPasswordForm'])->name('password.reset');
 Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
 
-// API-based Password Reset Routes (for email links)
-Route::get('/reset-password', [App\Http\Controllers\ApiPasswordResetController::class, 'showResetForm'])->name('api.password.reset.form');
-Route::post('/reset-password', [App\Http\Controllers\ApiPasswordResetController::class, 'reset'])->name('api.password.reset.update');
+// API-based Password Reset (Email Links)
+Route::get('/api/reset-password', [ApiPasswordResetController::class, 'showResetForm'])->name('api.password.reset.form');
+Route::post('/api/reset-password', [ApiPasswordResetController::class, 'reset'])->name('api.password.reset.update');
 
-// Debug Route for Registration Testing
-Route::get('/debug-registration', function() {
+// Debug Route (Registration Testing)
+Route::get('/debug-registration', function () {
     return view('debug.registration-test');
 })->name('debug.registration');
 
-Route::middleware(['auth', 'super-admin'])->group(function () {
-    Route::patch('/super-admin/available-permissions/{id}/assign-feature', [App\Http\Controllers\AvailablePermissionController::class, 'assignFeature'])
-        ->name('super-admin.available-permissions.assign-feature');
-    Route::get('/super-admin/dashboard', [App\Http\Controllers\SuperAdminController::class, 'dashboard'])->name('super-admin.dashboard');
-    Route::resource('super-admin/available-permissions', App\Http\Controllers\AvailablePermissionController::class, ['as' => 'super-admin']);
-    Route::get('/super-admin/dashboard', [App\Http\Controllers\SuperAdminController::class, 'dashboard'])->name('super-admin.dashboard');
-    Route::get('/super-admin/tenants', [App\Http\Controllers\SuperAdminController::class, 'tenants'])->name('super-admin.tenants.index');
-    Route::get('/super-admin/tenants/{id}', [App\Http\Controllers\SuperAdminController::class, 'showTenant'])->name('super-admin.tenants.show');
-    Route::get('/super-admin/users', [App\Http\Controllers\SuperAdminController::class, 'users'])->name('super-admin.users.index');
-    Route::get('/super-admin/users/{userId}/edit', [App\Http\Controllers\SuperAdminController::class, 'editUser'])->name('super-admin.users.edit');
-    Route::put('/super-admin/users/{userId}', [App\Http\Controllers\SuperAdminController::class, 'updateUser'])->name('super-admin.users.update');
-    Route::delete('/super-admin/users/{userId}', [App\Http\Controllers\SuperAdminController::class, 'deleteUser'])->name('super-admin.users.destroy');
-    Route::delete('/super-admin/users', [App\Http\Controllers\SuperAdminController::class, 'bulkDeleteUsers'])->name('super-admin.users.bulk-delete');
-    Route::post('/super-admin/users/{userId}/toggle-status', [App\Http\Controllers\SuperAdminController::class, 'toggleUserStatus'])->name('super-admin.users.toggle-status');
-    Route::post('/super-admin/users/{userId}/reset-password', [App\Http\Controllers\SuperAdminController::class, 'resetUserPassword'])->name('super-admin.users.reset-password');
 
-    // Features Management
-    Route::get('/super-admin/features', [App\Http\Controllers\SuperAdminController::class, 'features'])->name('super-admin.features.index');
-    Route::get('/super-admin/features/create', [App\Http\Controllers\SuperAdminController::class, 'createFeature'])->name('super-admin.features.create');
-    Route::post('/super-admin/features', [App\Http\Controllers\SuperAdminController::class, 'storeFeature'])->name('super-admin.features.store');
-    Route::get('/super-admin/features/{id}', [App\Http\Controllers\SuperAdminController::class, 'showFeature'])->name('super-admin.features.show');
-    Route::get('/super-admin/features/{id}/edit', [App\Http\Controllers\SuperAdminController::class, 'editFeature'])->name('super-admin.features.edit');
-    Route::put('/super-admin/features/{id}', [App\Http\Controllers\SuperAdminController::class, 'updateFeature'])->name('super-admin.features.update');
-    Route::post('/super-admin/features/{id}/assign-plans', [App\Http\Controllers\SuperAdminController::class, 'assignFeatureToPlans'])->name('super-admin.features.assign-plans');
-    Route::delete('/super-admin/features/{id}', [App\Http\Controllers\SuperAdminController::class, 'destroyFeature'])->name('super-admin.features.destroy');
+// ==============================================================================
+// SUPER ADMIN ROUTES
+// ==============================================================================
+Route::prefix('super-admin')->middleware(['auth', 'super-admin'])->as('super-admin.')->group(function () {
+    Route::get('/dashboard', [SuperAdminController::class, 'dashboard'])->name('dashboard');
 
-    // Plans Management
-    Route::get('/super-admin/plans', [App\Http\Controllers\SuperAdminController::class, 'plans'])->name('super-admin.plans.index');
-    Route::get('/super-admin/plans/create', [App\Http\Controllers\SuperAdminController::class, 'createPlan'])->name('super-admin.plans.create');
-    Route::post('/super-admin/plans', [App\Http\Controllers\SuperAdminController::class, 'storePlan'])->name('super-admin.plans.store');
-    Route::get('/super-admin/plans/{id}', [App\Http\Controllers\SuperAdminController::class, 'showPlan'])->name('super-admin.plans.show');
-    Route::get('/super-admin/plans/{id}/edit', [App\Http\Controllers\SuperAdminController::class, 'editPlan'])->name('super-admin.plans.edit');
-    Route::put('/super-admin/plans/{id}', [App\Http\Controllers\SuperAdminController::class, 'updatePlan'])->name('super-admin.plans.update');
-    Route::delete('/super-admin/plans/{id}', [App\Http\Controllers\SuperAdminController::class, 'destroyPlan'])->name('super-admin.plans.destroy');
+    // Contact Management
+    Route::get('/contacts', [ContactController::class, 'index'])->name('contacts.index');
+    Route::match(['post', 'patch'], '/contacts/bulk-action', [ContactController::class, 'bulkAction'])->name('contacts.bulk-action');
+    Route::get('/contacts/{contact}', [ContactController::class, 'show'])->name('contacts.show');
+    Route::post('/contacts/{contact}/reply', [ContactController::class, 'reply'])->name('contacts.reply');
+    Route::post('/contacts/{contact}/mark-read', [ContactController::class, 'markAsRead'])->name('contacts.mark-read');
 
-    // Dukas Management
-    Route::get('/super-admin/dukas', [App\Http\Controllers\SuperAdminController::class, 'dukas'])->name('super-admin.dukas.index');
-    Route::get('/super-admin/dukas/{id}', [App\Http\Controllers\SuperAdminController::class, 'showDuka'])->name('super-admin.dukas.show');
-    Route::delete('/super-admin/dukas/{id}', [App\Http\Controllers\SuperAdminController::class, 'destroyDuka'])->name('super-admin.dukas.destroy');
+    // User Management
+    Route::get('/users', [SuperAdminController::class, 'users'])->name('users.index');
+    Route::get('/users/{userId}/edit', [SuperAdminController::class, 'editUser'])->name('users.edit');
+    Route::put('/users/{userId}', [SuperAdminController::class, 'updateUser'])->name('users.update');
+    Route::delete('/users/{userId}', [SuperAdminController::class, 'deleteUser'])->name('users.destroy');
+    Route::delete('/users', [SuperAdminController::class, 'bulkDeleteUsers'])->name('users.bulk-delete');
+    Route::post('/users/{userId}/toggle-status', [SuperAdminController::class, 'toggleUserStatus'])->name('users.toggle-status');
+    Route::post('/users/{userId}/reset-password', [SuperAdminController::class, 'resetUserPassword'])->name('users.reset-password');
 
-    // Subscriptions Analytics
-    Route::get('/super-admin/subscriptions', [App\Http\Controllers\SuperAdminController::class, 'subscriptions'])->name('super-admin.subscriptions.index');
-    Route::get('/super-admin/subscriptions/analytics', [App\Http\Controllers\SuperAdminController::class, 'subscriptionAnalytics'])->name('super-admin.subscriptions.analytics');
+    // Tenants & Dukas
+    Route::get('/tenants', [SuperAdminController::class, 'tenants'])->name('tenants.index');
+    Route::get('/tenants/{id}', [SuperAdminController::class, 'showTenant'])->name('tenants.show');
+    Route::get('/dukas', [SuperAdminController::class, 'dukas'])->name('dukas.index');
+    Route::get('/dukas/{id}', [SuperAdminController::class, 'showDuka'])->name('dukas.show');
+    Route::delete('/dukas/{id}', [SuperAdminController::class, 'destroyDuka'])->name('dukas.destroy');
 
-    // Messages Management
-    Route::get('/super-admin/messages', [App\Http\Controllers\SuperAdminController::class, 'messages'])->name('super-admin.messages.index');
-    Route::get('/super-admin/messages/create', [App\Http\Controllers\SuperAdminController::class, 'createMessage'])->name('super-admin.messages.create');
-    Route::post('/super-admin/messages', [App\Http\Controllers\SuperAdminController::class, 'storeMessage'])->name('super-admin.messages.store');
-    Route::get('/super-admin/messages/{id}', [App\Http\Controllers\SuperAdminController::class, 'showMessage'])->name('super-admin.messages.show');
-    Route::post('/super-admin/messages/{id}/mark-read', [App\Http\Controllers\SuperAdminController::class, 'markMessageAsRead'])->name('super-admin.messages.mark-read');
-    Route::post('/super-admin/messages/{id}/reply', [App\Http\Controllers\SuperAdminController::class, 'replyToMessage'])->name('super-admin.messages.reply');
+    // Features & Plans
+    Route::resource('available-permissions', AvailablePermissionController::class, ['except' => ['show']]);
+    Route::patch('/available-permissions/{id}/assign-feature', [AvailablePermissionController::class, 'assignFeature'])->name('available-permissions.assign-feature');
+    Route::get('/available-permissions/download-sample', [AvailablePermissionController::class, 'downloadSample'])->name('available-permissions.download-sample');
 
-    // Customers Overview
-    Route::get('/super-admin/customers', [App\Http\Controllers\SuperAdminController::class, 'customers'])->name('super-admin.customers.index');
-    Route::get('/super-admin/customers/{id}', [App\Http\Controllers\SuperAdminController::class, 'showCustomer'])->name('super-admin.customers.show');
+    Route::resource('features', SuperAdminController::class)->names('features')->except(['index', 'show']);
+    Route::get('/features', [SuperAdminController::class, 'features'])->name('features.index'); // Custom method map?
+    Route::get('/features/{id}', [SuperAdminController::class, 'showFeature'])->name('features.show');
+    Route::get('/features/create', [SuperAdminController::class, 'createFeature'])->name('features.create'); // Explicit
+    Route::post('/features/{id}/assign-plans', [SuperAdminController::class, 'assignFeatureToPlans'])->name('features.assign-plans');
 
-    // Telescope Management
-    Route::get('/super-admin/telescope', [App\Http\Controllers\SuperAdminController::class, 'telescope'])->name('super-admin.telescope.index');
-    Route::get('/super-admin/telescope/{id}', [App\Http\Controllers\SuperAdminController::class, 'showTelescopeEntry'])->name('super-admin.telescope.show');
-    Route::post('/super-admin/telescope/clear', [App\Http\Controllers\SuperAdminController::class, 'clearTelescopeEntries'])->name('super-admin.telescope.clear');
-    Route::post('/super-admin/telescope/bulk-delete', [App\Http\Controllers\SuperAdminController::class, 'bulkDeleteTelescopeEntries'])->name('super-admin.telescope.bulk-delete');
-    Route::get('/super-admin/telescope/export/json', [App\Http\Controllers\SuperAdminController::class, 'exportTelescopeEntries'])->name('super-admin.telescope.export');
-    Route::get('/super-admin/telescope/stats/live', [App\Http\Controllers\SuperAdminController::class, 'getTelescopeStats'])->name('super-admin.telescope.stats');
+    Route::resource('plans', SuperAdminController::class)->names('plans')->except(['index', 'show']);
+    Route::get('/plans', [SuperAdminController::class, 'plans'])->name('plans.index');
+    Route::get('/plans/{id}', [SuperAdminController::class, 'showPlan'])->name('plans.show');
 
-    // Backup Management
-    Route::get('/super-admin/backups', [App\Http\Controllers\SuperAdminController::class, 'backups'])->name('super-admin.backups.index');
-    Route::post('/super-admin/backups/create', [App\Http\Controllers\SuperAdminController::class, 'createBackup'])->name('super-admin.backups.create');
-    Route::get('/super-admin/backups/download/{filename}', [App\Http\Controllers\SuperAdminController::class, 'downloadBackup'])->name('super-admin.backups.download');
-    Route::delete('/super-admin/backups/delete/{filename}', [App\Http\Controllers\SuperAdminController::class, 'deleteBackup'])->name('super-admin.backups.delete');
+    // Subscriptions/Messages/Backups/Telescope
+    Route::get('/subscriptions', [SuperAdminController::class, 'subscriptions'])->name('subscriptions.index');
+    Route::get('/subscriptions/analytics', [SuperAdminController::class, 'subscriptionAnalytics'])->name('subscriptions.analytics');
 
-    // Available Permissions Management
-    Route::resource('super-admin/available-permissions', App\Http\Controllers\AvailablePermissionController::class, ['as' => 'super-admin']);
+    Route::resource('messages', SuperAdminController::class)->names('messages')->except(['index', 'show']);
+    Route::get('/messages', [SuperAdminController::class, 'messages'])->name('messages.index');
+    Route::get('/messages/{id}', [SuperAdminController::class, 'showMessage'])->name('messages.show');
+    Route::post('/messages/{id}/mark-read', [SuperAdminController::class, 'markMessageAsRead'])->name('messages.mark-read');
+    Route::post('/messages/{id}/reply', [SuperAdminController::class, 'replyToMessage'])->name('messages.reply');
 
-    Route::get('super-admin/available-permissions/download-sample', [App\Http\Controllers\AvailablePermissionController::class, 'downloadSample'])->name('super-admin.available-permissions.download-sample');
+    Route::get('/customers', [SuperAdminController::class, 'customers'])->name('customers.index');
+    Route::get('/customers/{id}', [SuperAdminController::class, 'showCustomer'])->name('customers.show');
 
-    // Settings Management
-    Route::get('/super-admin/settings', [App\Http\Controllers\SuperAdminController::class, 'settings'])->name('super-admin.settings.index');
-    Route::post('/super-admin/settings/bulk-set-password', [App\Http\Controllers\SuperAdminController::class, 'bulkSetPassword'])->name('super-admin.settings.bulk-set-password');
-    Route::put('/super-admin/settings/tenant/{tenantId}/set-password', [App\Http\Controllers\SuperAdminController::class, 'setTenantPassword'])->name('super-admin.settings.set-tenant-password');
+    Route::get('/telescope', [SuperAdminController::class, 'telescope'])->name('telescope.index');
+    Route::get('/telescope/{id}', [SuperAdminController::class, 'showTelescopeEntry'])->name('telescope.show');
+    Route::post('/telescope/clear', [SuperAdminController::class, 'clearTelescopeEntries'])->name('telescope.clear');
+    Route::post('/telescope/bulk-delete', [SuperAdminController::class, 'bulkDeleteTelescopeEntries'])->name('telescope.bulk-delete');
+    Route::get('/telescope/export/json', [SuperAdminController::class, 'exportTelescopeEntries'])->name('telescope.export');
+    Route::get('/telescope/stats/live', [SuperAdminController::class, 'getTelescopeStats'])->name('telescope.stats');
 
-    // Profile Management
-    Route::get('/super-admin/profile', [App\Http\Controllers\SuperAdminController::class, 'profile'])->name('super-admin.profile');
-    Route::post('/super-admin/profile/update', [App\Http\Controllers\SuperAdminController::class, 'updateProfile'])->name('super-admin.profile.update');
+    Route::get('/backups', [SuperAdminController::class, 'backups'])->name('backups.index');
+    Route::post('/backups/create', [SuperAdminController::class, 'createBackup'])->name('backups.create');
+    Route::get('/backups/download/{filename}', [SuperAdminController::class, 'downloadBackup'])->name('backups.download');
+    Route::delete('/backups/delete/{filename}', [SuperAdminController::class, 'deleteBackup'])->name('backups.delete');
+
+    // Settings & Profile
+    Route::get('/settings', [SuperAdminController::class, 'settings'])->name('settings.index');
+    Route::post('/settings/bulk-set-password', [SuperAdminController::class, 'bulkSetPassword'])->name('settings.bulk-set-password');
+    Route::put('/settings/tenant/{tenantId}/set-password', [SuperAdminController::class, 'setTenantPassword'])->name('settings.set-tenant-password');
+    Route::get('/profile', [SuperAdminController::class, 'profile'])->name('profile');
+    Route::post('/profile/update', [SuperAdminController::class, 'updateProfile'])->name('profile.update');
 });
 
+
+// ==============================================================================
+// TENANT ROUTES
+// ==============================================================================
 Route::middleware(['auth', 'tenant'])->group(function () {
-    Route::get('/change-password', [AuthController::class, 'showChangePasswordForm'])->name('password.change');
-    Route::post('/change-password', [AuthController::class, 'changePassword'])->name('password.update');
-    Route::get('/duka/create-plan', [DukaController::class, 'createWithPlan'])->name('duka.create.plan');
-    Route::post('/duka/create-with-plan', [DukaController::class, 'storecreateduka'])->name('duka.store.with.plan');
-    Route::get('/duka/{encrypted_id}/change-plan', [DukaController::class, 'changePlan'])->name('duka.change.plan');
-    Route::post('/duka/{encrypted_id}/update-plan', [DukaController::class, 'updatePlan'])->name('duka.update.plan');
+
+    // Dashboard & Profile
     Route::get('/dashboard', function () {
         return view('dashboard');
     })->name('tenant.dashboard');
-    Route::post('/duka/store', [DukaController::class, 'store'])->name('duka.store');
-    Route::get('/duka/{id}', [App\Http\Controllers\DukaController::class, 'showduka'])->name('duka.show');
-    Route::get('/duka/{id}/edit', [App\Http\Controllers\DukaController::class, 'edit'])->name('duka.edit');
-    Route::put('/duka/{id}', [App\Http\Controllers\DukaController::class, 'update'])->name('duka.update');
-    Route::get('/duka/{id}/aging-analysis', [DukaController::class, 'loanAgingAnalysis'])->name('duka.aging.analysis');
-    Route::post('/duka/{duka_id}/send-loan-reminder', [DukaController::class, 'sendLoanReminder'])->name('duka.send.loan.reminder');
-    Route::post('/duka/{duka_id}/send-bulk-reminders', [DukaController::class, 'sendBulkLoanReminders'])->name('duka.send.bulk.reminders');
-    Route::get('/duka/{encrypted_id}', [DukaController::class, 'showduka'])->name('duka.show');
-    Route::get('/tenant/dukas', [App\Http\Controllers\DukaController::class, 'alldukas'])->name('tenant.dukas.index');
+    Route::get('/change-password', [AuthController::class, 'showChangePasswordForm'])->name('password.change');
+    Route::post('/change-password', [AuthController::class, 'changePassword'])->name('password.update');
+
+    // Profile
+    Route::get('/profile', [AccountController::class, 'profile'])->name('profile');
+    Route::post('/profile/update', [AccountController::class, 'updateProfile'])->name('profile.update');
+
+    // Account & Settings
+    Route::get('/accountsetup', [AccountController::class, 'index'])->name('accountsetup');
+
+    Route::prefix('account')->name('account.')->group(function () {
+        Route::get('/create', [AccountController::class, 'create'])->name('create');
+        Route::post('/store', [AccountController::class, 'store'])->name('store');
+        Route::get('/edit', [AccountController::class, 'edit'])->name('edit');
+        Route::put('/update', [AccountController::class, 'update'])->name('update');
+        Route::put('/update-settings', [AccountController::class, 'updateSettings'])->name('update-settings');
+        Route::delete('/delete', [AccountController::class, 'destroy'])->name('destroy');
+    });
+
+    // Duka Management
+    Route::prefix('duka')->name('duka.')->group(function () {
+        Route::get('/create-plan', [DukaController::class, 'createWithPlan'])->name('create.plan');
+        Route::post('/create-with-plan', [DukaController::class, 'storecreateduka'])->name('store.with.plan');
+        Route::post('/store', [DukaController::class, 'store'])->name('store');
+        Route::get('/{encrypted_id}/change-plan', [DukaController::class, 'changePlan'])->name('change.plan');
+        Route::post('/{encrypted_id}/update-plan', [DukaController::class, 'updatePlan'])->name('update.plan');
+
+        // Single Duka Handling (Using both ID and Encrypted ID in controller, harmonized here)
+        Route::get('/settings', [DukaController::class, 'allDukas'])->name('setting'); // Point to allDukas or a specific settings page? The request asked for route('tenant.dukas.index') logic initially but wanted a setting route. I'll make it point to a method that decides.
+        Route::get('/{id}', [DukaController::class, 'showduka'])->name('show');
+        Route::get('/{id}/edit', [DukaController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [DukaController::class, 'update'])->name('update');
+        Route::get('/{id}/aging-analysis', [DukaController::class, 'loanAgingAnalysis'])->name('aging.analysis');
+        Route::get('/{duka_id}/send-loan-reminder', [DukaController::class, 'sendLoanReminder'])->name('send.loan.reminder');
+        Route::post('/{duka_id}/send-bulk-reminders', [DukaController::class, 'sendBulkLoanReminders'])->name('send.bulk.reminders');
+
+        Route::get('/{id}/inventory', [DukaController::class, 'inventory'])->name('inventory');
+        Route::get('/{id}/inventory/export/excel', [DukaController::class, 'exportInventoryExcel'])->name('inventory.export.excel');
+        Route::get('/{id}/inventory/export/pdf', [DukaController::class, 'exportInventoryPdf'])->name('inventory.export.pdf');
+        Route::get('/{id}/customers', [DukaController::class, 'customers'])->name('customers');
+
+        // Service Management Routes
+        Route::prefix('{duka_id}/services')->name('services.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\DukaServiceController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\DukaServiceController::class, 'storeService'])->name('store');
+            Route::put('/{id}', [\App\Http\Controllers\DukaServiceController::class, 'updateService'])->name('update');
+            Route::delete('/{id}', [\App\Http\Controllers\DukaServiceController::class, 'destroyService'])->name('destroy');
+
+            Route::prefix('categories')->name('categories.')->group(function () {
+                Route::post('/', [\App\Http\Controllers\DukaServiceController::class, 'storeCategory'])->name('store');
+                Route::put('/{id}', [\App\Http\Controllers\DukaServiceController::class, 'updateCategory'])->name('update');
+                Route::delete('/{id}', [\App\Http\Controllers\DukaServiceController::class, 'destroyCategory'])->name('destroy');
+            });
+        });
+    });
+
+    Route::get('/tenant/dukas', [DukaController::class, 'alldukas'])->name('tenant.dukas.index');
+
+    // Products & Stocks
     Route::get('/categories', [ProductCategoryController::class, 'index'])->name('categories.index');
-    Route::get('/categories/create', [ProductCategoryController::class, 'create'])->name('categories.create');
-    Route::post('/categories/store', [ProductCategoryController::class, 'store'])->name('categories.store');
-    Route::get('/categories/{id}/edit', [ProductCategoryController::class, 'edit'])->name('categories.edit');
-    Route::put('/categories/{id}', [ProductCategoryController::class, 'update'])->name('categories.update');
-    Route::delete('/categories/{id}', [ProductCategoryController::class, 'destroy'])->name('categories.destroy');
+    Route::get('/categories/import-template', [ProductCategoryController::class, 'downloadImportTemplate'])->name('categories.import-template');
+    Route::post('/categories/import', [ProductCategoryController::class, 'import'])->name('categories.import');
+    Route::resource('categories', ProductCategoryController::class)->except(['index']);
+
     Route::post('/products/store', [ProductController::class, 'store'])->name('products.store');
-    Route::put('/tenant/products/{encrypted}', [ProductController::class, 'update'])->name('tenant.product.update');
+    Route::prefix('tenant/products')->name('tenant.product.')->group(function () {
+        Route::get('/{encrypted}', [ProductController::class, 'manage'])->name('manage');
+        Route::put('/{encrypted}', [ProductController::class, 'update'])->name('update');
+    });
+
     Route::post('/stocks/store', [StockController::class, 'store'])->name('stocks.store');
     Route::put('/stocks/{id}', [StockController::class, 'update'])->name('stocks.update');
+
+    // Customers
     Route::post('/customers/store', [CustomerController::class, 'store'])->name('customers.store');
-    Route::get('/tenant/products/{encrypted}', [ProductController::class, 'manage'])->name('tenant.product.manage');
-    Route::put('/tenant/products/{encrypted}', [ProductController::class, 'update'])->name('tenant.product.update');
-    Route::get('/accountsetup', [App\Http\Controllers\AccountController::class, 'index'])->name('accountsetup');
-    Route::get('/cashflow', [TenantCashFlowController::class, 'index'])->name('tenant.cashflow.index');
-    Route::post('/cashflow/store', [TenantCashFlowController::class, 'store'])->name('tenant.cashflow.store');
-    Route::get('/reports/profit-loss', [TenantCashFlowController::class, 'profitAndLoss'])->name('tenant.reports.pl');
+    Route::get('/customers/import-template', [CustomerController::class, 'downloadImportTemplate'])->name('customers.import-template');
 
+    // Sales & Transactions
+    Route::get('/sales/history', [SaleController::class, 'index'])->name('sales.index'); // Renamed original index to history or kept distinct
+    Route::get('/sales/history/export', [SaleController::class, 'exportSales'])->name('sales.export');
+    Route::get('/sales/history/summary/excel', [SaleController::class, 'exportSummaryExcel'])->name('sales.summary.excel');
+    Route::get('/sales/history/summary/pdf', [SaleController::class, 'exportSummaryPdf'])->name('sales.summary.pdf');
 
-    // Test routes for debugging
-    Route::get('/test/product', [App\Http\Controllers\TestProductController::class, 'test'])->name('test.product');
-    Route::get('/test/product-create', [App\Http\Controllers\TestProductController::class, 'testProductCreation'])->name('test.product.create');
-    Route::get('/reports/consolidated-profit-loss', [TenantCashFlowController::class, 'consolidatedProfitLoss'])->name('tenant.reports.consolidated_pl');
+    // Import Rollback & History
+    Route::get('/imports/history', [\App\Http\Controllers\ImportHistoryController::class, 'index'])->name('imports.index');
+    Route::delete('/imports/rollback/{batchId}', [\App\Http\Controllers\ImportHistoryController::class, 'rollback'])->name('imports.rollback');
+    Route::post('/imports/cleanup-legacy', [\App\Http\Controllers\ImportHistoryController::class, 'cleanupLegacy'])->name('imports.cleanup_legacy');
 
-    // Stock Movement Trends
-    Route::get('/tenant/stock-trends', [App\Http\Controllers\StockMovementTrendController::class, 'index'])->name('tenant.stock-trends.index');
-    Route::get('/tenant/stock-trends/product/{encrypted}', [App\Http\Controllers\StockMovementTrendController::class, 'showProduct'])->name('tenant.stock-trends.product');
-    Route::get('/tenant/stock-trends/duka/{encrypted}', [App\Http\Controllers\StockMovementTrendController::class, 'showDuka'])->name('tenant.stock-trends.duka');
-    Route::get('/account/create', [App\Http\Controllers\AccountController::class, 'create'])->name('account.create');
-    Route::post('/account/store', [App\Http\Controllers\AccountController::class, 'store'])->name('account.store');
-    Route::get('/account/edit', [App\Http\Controllers\AccountController::class, 'edit'])->name('account.edit');
-    Route::put('/account/update', [App\Http\Controllers\AccountController::class, 'update'])->name('account.update');
-    Route::put('/account/update-settings', [App\Http\Controllers\AccountController::class, 'updateSettings'])->name('account.update-settings');
-    Route::delete('/account/delete', [App\Http\Controllers\AccountController::class, 'destroy'])->name('account.destroy');
-    Route::get('/permissions', [App\Http\Controllers\PermissionController::class, 'index'])->name('permissions.index');
-    Route::get('/permissions/officer/{officerId}', [App\Http\Controllers\PermissionController::class, 'showOfficerPermissions'])->name('permissions.officer.show');
-    Route::put('/permissions/officer/{officerId}', [App\Http\Controllers\PermissionController::class, 'updateOfficerPermissions'])->name('permissions.officer.update');
-    Route::get('/permissions/duka/{dukaId}/plan', [App\Http\Controllers\PermissionController::class, 'checkDukaPlan'])->name('permissions.check-duka-plan');
-    Route::get('/report-analysis', [App\Http\Controllers\ReportAnalysisController::class, 'index'])->name('report.analysis');
-    Route::get('/profile',[App\Http\Controllers\AccountController::class, 'profile'])->name('profile');
-    Route::post('/profile/update',[App\Http\Controllers\AccountController::class, 'updateProfile'])->name('profile.update');
-    // Message Routes
-    Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
-    Route::get('/messages/{message}', [MessageController::class, 'show'])->name('messages.show');
-    Route::post('/messages/{message}/reply', [MessageController::class, 'reply'])->name('messages.reply');
-    Route::get('/messages/{message}/download', [MessageController::class, 'downloadAttachment'])->name('messages.download');
+    Route::get('/sales-pos', [SaleController::class, 'smartIndex'])->name('tenant.sales.index');
+    // Standard Blade POS Routes
+    Route::get('/sale/process/{dukaId}', [SaleController::class, 'process'])->name('sale.process');
+    Route::get('/sale/products/{dukaId}', [SaleController::class, 'processProducts'])->name('sale.products');
+    Route::get('/sale/services/{dukaId}', [SaleController::class, 'processServices'])->name('sale.services');
+    Route::post('/sale/process/{dukaId}/add-to-cart', [SaleController::class, 'addToCart'])->name('sale.add_to_cart');
+    Route::post('/sale/process/{dukaId}/remove-from-cart/{productId}', [SaleController::class, 'removeFromCart'])->name('sale.remove_from_cart');
+    Route::post('/sale/process/{dukaId}/clear-cart', [SaleController::class, 'clearCart'])->name('sale.clear_cart');
+    Route::post('/sale/process/{dukaId}/checkout', [SaleController::class, 'checkout'])->name('sale.checkout');
+    Route::post('/sale/process/{dukaId}/import', [SaleController::class, 'importSales'])->name('sale.import');
+    Route::get('/sale/process/{dukaId}/template', [SaleController::class, 'downloadTemplate'])->name('sale.download_template');
+    Route::get('/sale/import/instructions', [SaleController::class, 'downloadImportInstructions'])->name('sale.import_instructions');
 
-    // Officer Management Routes
-    Route::get('/officers', [OfficerController::class, 'index'])->name('officers.index');
-    Route::get('/officers/create', [OfficerController::class, 'create'])->name('officers.create');
-    Route::post('/officers', [OfficerController::class, 'store'])->name('officers.store');
-    Route::get('/officers/{id}', [OfficerController::class, 'show'])->name('officers.show');
-    Route::get('/officers/{id}/edit', [OfficerController::class, 'edit'])->name('officers.edit');
-    Route::put('/officers/{id}', [OfficerController::class, 'update'])->name('officers.update');
-    Route::put('/officers/{id}/set-default-password', [OfficerController::class, 'setDefaultPassword'])->name('officers.set-default-password');
-    Route::delete('/officers/{id}', [OfficerController::class, 'destroy'])->name('officers.destroy');
-    Route::get('/cashflow/consolidated', [TenantCashFlowController::class, 'consolidatedCashFlow'])->name('tenant.reports.consolidated');
-
-
-    Route::get('/sales', [App\Http\Controllers\SaleController::class, 'index'])->name('sales.index');
-
-
-
-    Route::post('/officers/assign', [OfficerController::class, 'assign'])->name('officers.assign');
-    Route::delete('/officers/unassign/{id}', [OfficerController::class, 'unassign'])->name('officers.unassign');
-    Route::put('/officers/update-role/{id}', [OfficerController::class, 'updateRole'])->name('officers.update-role');
-
-    Route::get('/salenow',[ProformaInvoiceController::class,'salenow'])->name('sale.now');
-    Route::get('/sale/process/{dukaId}', function ($dukaId) {
-        return view('sale.process', ['dukaId' => $dukaId]);
-    })->name('sale.process');
-
-
+    // Specific Sale with Logic
     Route::get('/sales/{id}', function ($id) {
         $sale = \App\Models\Sale::with(['customer', 'duka', 'saleItems.product', 'loanPayments.user'])->findOrFail($id);
-        $user = auth()->user();
-        if ($sale->tenant_id != $user->tenant->id) {
-            abort(403, 'Unauthorized access.');
-        }
+        if ($sale->tenant_id != auth()->user()->tenant->id) abort(403);
         return view('sales.show', compact('sale'));
     })->name('sales.show');
+
     Route::get('/sales/{id}/invoice', function ($id) {
         $sale = \App\Models\Sale::with(['customer', 'duka', 'saleItems.product', 'tenant'])->findOrFail($id);
         $user = auth()->user();
-        if ($sale->tenant_id != $user->tenant->id) {
-            abort(403, 'Unauthorized access.');
-        }
+        if ($sale->tenant_id != $user->tenant->id) abort(403);
         $tenantAccount = \App\Models\TenantAccount::where('tenant_id', $user->tenant->id)->first();
-        return view('sales.invoice', compact('sale', 'tenantAccount'));
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('sales.invoice', compact('sale', 'tenantAccount'));
+        return $pdf->download('invoice_' . $sale->id . '.pdf');
     })->name('sales.invoice');
-    Route::get('/sales/{id}/edit', [App\Http\Controllers\SaleController::class, 'edit'])->name('sales.edit');
-    Route::put('/sales/{id}', [App\Http\Controllers\SaleController::class, 'update'])->name('sales.update');
-    Route::post('/sales/{saleId}/loan-payments', [App\Http\Controllers\LoanPaymentController::class, 'store'])->name('loan.payments.store');
-    // Proforma Invoice Routes
-    Route::group(['prefix' => 'proforma-invoices', 'as' => 'proforma.'], function () {
+
+    Route::get('/sales/{id}/edit', [SaleController::class, 'edit'])->name('sales.edit');
+    Route::put('/sales/{id}', [SaleController::class, 'update'])->name('sales.update');
+    Route::post('/sales/{saleId}/loan-payments', [LoanPaymentController::class, 'store'])->name('loan.payments.store');
+
+    // Proforma Invoices
+    Route::prefix('proforma-invoices')->as('proforma.')->group(function () {
         Route::get('/duka', [ProformaInvoiceController::class, 'index'])->name('index');
         Route::get('/create/{dukaId}', [ProformaInvoiceController::class, 'createForDuka'])->name('create.for.duka');
         Route::post('/store', [ProformaInvoiceController::class, 'store'])->name('store');
@@ -287,93 +312,143 @@ Route::middleware(['auth', 'tenant'])->group(function () {
         Route::get('/sale-now', [ProformaInvoiceController::class, 'salenow'])->name('salenow');
     });
 
-    // Stock Transfer Routes
-    Route::get('/tenant/stock-transfers/create', [App\Http\Controllers\StockTransferController::class, 'create'])->name('tenant.stock-transfers.create');
-    Route::post('/tenant/stock-transfers', [App\Http\Controllers\StockTransferController::class, 'store'])->name('tenant.stock-transfers.store');
+    // Cashflow & Reports
+    Route::get('/cashflow', [TenantCashFlowController::class, 'index'])->name('tenant.cashflow.index');
+    Route::get('/cashflow/consolidated', [TenantCashFlowController::class, 'consolidatedCashFlow'])->name('tenant.reports.consolidated');
+    Route::post('/cashflow/store', [TenantCashFlowController::class, 'store'])->name('tenant.cashflow.store');
+    Route::get('/reports/profit-loss', [TenantCashFlowController::class, 'profitAndLoss'])->name('tenant.reports.pl');
+    Route::get('/reports/consolidated-profit-loss', [TenantCashFlowController::class, 'consolidatedProfitLoss'])->name('tenant.reports.consolidated_pl');
+    Route::get('/report-analysis', [ReportAnalysisController::class, 'index'])->name('report.analysis');
 
+    // Audit Logs
+    Route::get('/audit-logs', [\App\Http\Controllers\AuditLogController::class, 'index'])->name('audit.index');
 
+    // Stock Movement Trends
+    Route::prefix('tenant/stock-trends')->name('tenant.stock-trends.')->group(function () {
+        Route::get('/', [StockMovementTrendController::class, 'index'])->name('index');
+        Route::get('/product/{encrypted}', [StockMovementTrendController::class, 'showProduct'])->name('product');
+        Route::get('/duka/{encrypted}', [StockMovementTrendController::class, 'showDuka'])->name('duka');
+    });
 
+    // Stock Transfer
+    Route::get('/tenant/stock-transfers/create', [StockTransferController::class, 'create'])->name('tenant.stock-transfers.create');
+    Route::post('/tenant/stock-transfers', [StockTransferController::class, 'store'])->name('tenant.stock-transfers.store');
+    Route::put('/officers/{user}/reset-password', [OfficerController::class, 'resetPassword'])
+        ->name('officers.reset-password');
 
+    // Officers Management
+    Route::resource('officers', OfficerController::class);
+    Route::put('/officers/{id}/set-default-password', [OfficerController::class, 'setDefaultPassword'])->name('officers.set-default-password');
+    Route::post('/officers/assign', [OfficerController::class, 'assign'])->name('officers.assign');
+    Route::delete('/officers/unassign/{id}', [OfficerController::class, 'unassign'])->name('officers.unassign');
+    Route::put('/officers/update-role/{id}', [OfficerController::class, 'updateRole'])->name('officers.update-role');
+    Route::patch('/officers/reassign/{id}', [OfficerController::class, 'reassign'])->name('officers.reassign');
 
+    // Permissions
+    Route::get('/permissions', [PermissionController::class, 'index'])->name('permissions.index');
+    Route::get('/permissions/officer/{officerId}', [PermissionController::class, 'showOfficerPermissions'])->name('permissions.officer.show');
+    Route::put('/permissions/officer/{officerId}', [PermissionController::class, 'updateOfficerPermissions'])->name('permissions.officer.update');
+    Route::get('/permissions/duka/{dukaId}/plan', [PermissionController::class, 'checkDukaPlan'])->name('permissions.check-duka-plan');
+
+    // Messages
+    Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
+    Route::get('/messages/{message}', [MessageController::class, 'show'])->name('messages.show');
+    Route::post('/messages/{message}/reply', [MessageController::class, 'reply'])->name('messages.reply');
+    Route::get('/messages/{message}/download', [MessageController::class, 'downloadAttachment'])->name('messages.download');
+
+    // Debugging
+    Route::get('/test/product', [TestProductController::class, 'test'])->name('test.product');
+    Route::get('/test/product-create', [TestProductController::class, 'testProductCreation'])->name('test.product.create');
 });
 
-// Officer Routes
-Route::middleware(['auth', 'officer'])->group(function () {
-    Route::get('/ping', function () {
-        return response()->json(['status' => 'ok']);
-    });
-    Route::get('/officer/dashboard', [App\Http\Controllers\OfficerController::class, 'dashboard'])->name('officer.dashboard');
-    Route::get('/officer/profile', [App\Http\Controllers\OfficerController::class, 'profile'])->name('officer.profile');
-    Route::post('/officer/profile/update', [App\Http\Controllers\OfficerController::class, 'updateProfile'])->name('officer.profile.update');
-    Route::get('/officer/proformainvoice', [App\Http\Controllers\OfficerController::class, 'proformaInvoice'])->name('officer.proformainvoice');
-    Route::get('/officer/proformainvoice/preview', [App\Http\Controllers\OfficerController::class, 'proformaInvoicePreview'])->name('officer.proforma-invoice.preview');
 
+// ==============================================================================
+// OFFICER ROUTES
+// ==============================================================================
+Route::prefix('officer')->name('officer.')->middleware(['auth', 'officer'])->group(function () {
 
-    Route::get('/allproduct',[App\Http\Controllers\OfficerController::class,'manageproduct'])->name('manageproduct');
-    Route::get('/products/import', [App\Http\Controllers\OfficerController::class, 'importProducts'])->name('officer.products.import');
-    Route::post('/products/import', [App\Http\Controllers\OfficerController::class, 'processImport'])->name('officer.products.import.process');
-    Route::get('/products/create', [App\Http\Controllers\OfficerController::class, 'showCreateProduct'])->name('officer.product.create');
-    Route::post('/products/store', [App\Http\Controllers\OfficerController::class, 'storeProduct'])->name('officer.products.store');
-    Route::get('/products/{product}/edit', [App\Http\Controllers\OfficerController::class, 'showEditProduct'])->name('officer.product.edit');
-    Route::get('/products/{product}/stock', [App\Http\Controllers\OfficerController::class, 'manageStock'])->name('officer.product.stock');
-    Route::get('/products/{product}/items', [App\Http\Controllers\OfficerController::class, 'viewProductItems'])->name('officer.product.items');
-    Route::post('/officer/product-items/update-status', [App\Http\Controllers\OfficerController::class, 'updateProductItemStatus'])->name('officer.product-items.update-status');
-    Route::get('/officer/products/export', [App\Http\Controllers\OfficerController::class, 'exportProducts'])->name('officer.products.export');
-    // Customer Management for Officers
-    Route::get('/officer/customers', [App\Http\Controllers\OfficerController::class, 'manageCustomers'])->name('officer.customers.manage');
-    Route::get('/officer/customers/import', [App\Http\Controllers\OfficerController::class, 'importCustomers'])->name('officer.customers.import');
-    Route::post('/officer/customers/import', [App\Http\Controllers\OfficerController::class, 'processCustomerImport'])->name('officer.customers.import.process');
-    Route::post('/officer/customers', [App\Http\Controllers\OfficerController::class, 'storeCustomer'])->name('officer.customers.store');
-    Route::put('/officer/customers/{id}', [App\Http\Controllers\OfficerController::class, 'updateCustomer'])->name('officer.customers.update');
-    Route::delete('/officer/customers/{id}', [App\Http\Controllers\OfficerController::class, 'destroyCustomer'])->name('officer.customers.destroy');
+    // Dashboard & Profile
+    Route::get('/dashboard', [OfficerController::class, 'dashboard'])->name('dashboard');
+    Route::get('/profile', [OfficerController::class, 'profile'])->name('profile');
+    Route::post('/profile/update', [OfficerController::class, 'updateProfile'])->name('profile.update');
 
-    // Category Management for Officers
-    Route::get('/officer/categories', [App\Http\Controllers\OfficerController::class, 'manageCategories'])->name('officer.categories.manage');
-    Route::get('/officer/categories/import', [App\Http\Controllers\OfficerController::class, 'importCategories'])->name('officer.categories.import');
-    Route::post('/officer/categories/import', [App\Http\Controllers\OfficerController::class, 'processCategoryImport'])->name('officer.categories.import.process');
-    Route::post('/officer/categories', [App\Http\Controllers\OfficerController::class, 'storeCategory'])->name('officer.categories.store');
-    Route::put('/officer/categories/{id}', [App\Http\Controllers\OfficerController::class, 'updateCategory'])->name('officer.categories.update');
-    Route::delete('/officer/categories/{id}', [App\Http\Controllers\OfficerController::class, 'destroyCategory'])->name('officer.categories.destroy');
-    Route::get('/officer/products/{id}/edit', [App\Http\Controllers\OfficerController::class, 'editProduct'])->name('officer.products.edit');
-    Route::put('/officer/products/{id}', [App\Http\Controllers\OfficerController::class, 'updateProduct'])->name('officer.products.update');
-    Route::delete('/officer/products/{id}', [App\Http\Controllers\OfficerController::class, 'destroyProduct'])->name('officer.products.destroy');
-
-    //sales manaegnment
-    Route::get('/officer/sales',[App\Http\Controllers\SalesofficerControllers::class, 'officersalesstocks'])->name('officer.sales');
-    Route::get('/officer/sales/{id}/invoice', function ($id) {
+    // Sales
+    Route::get('/sales', [SalesofficerControllers::class, 'officersalesstocks'])->name('sales');
+    Route::get('/sales/{id}/invoice', function ($id) {
         $sale = \App\Models\Sale::with(['customer', 'duka', 'saleItems.product', 'tenant'])->findOrFail($id);
         $user = auth()->user();
 
-        // Check if officer has access to this sale
         $dukaIds = \App\Models\TenantOfficer::where('officer_id', $user->id)->where('status', true)->pluck('duka_id');
-        if (!$dukaIds->contains($sale->duka_id)) {
-            abort(403, 'Unauthorized access to this sale.');
-        }
+        if (!$dukaIds->contains($sale->duka_id)) abort(403, 'Unauthorized access to this sale.');
 
         $tenantAccount = \App\Models\TenantAccount::where('tenant_id', $sale->tenant_id)->first();
-        return view('sales.invoice', compact('sale', 'tenantAccount'));
-    })->name('officer.sales.invoice');
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('sales.invoice', compact('sale', 'tenantAccount'));
+        return $pdf->download('invoice_' . $sale->id . '.pdf');
+    })->name('sales.invoice');
 
-    // Loan Management
-    Route::get('/officer/loanmanagement', [OfficerLoanController::class, 'index'])->name('officer.loanmanagement');
-    Route::get('/officer/loans/{id}', [OfficerLoanController::class, 'show'])->name('officer.loans.show');
-    Route::post('/officer/loans/{loanId}/payments', [OfficerLoanController::class, 'storePayment'])->name('officer.loans.payments.store');
-    Route::get('/officer/loan-aging-analysis', [OfficerLoanController::class, 'agingAnalysis'])->name('officer.loan.aging.analysis');
+    // Products & Stocks
+    Route::get('/allproduct', [OfficerController::class, 'manageproduct'])->name('manageproduct'); // Consider renaming route
 
-    // Stock Management for Officers
-    Route::post('/officer/stocks/add', [App\Http\Controllers\OfficerController::class, 'addStock'])->name('officer.stocks.add');
-    Route::post('/officer/stocks/reduce', [App\Http\Controllers\OfficerController::class, 'reduceStock'])->name('officer.stocks.reduce');
-    Route::put('/officer/stocks/{id}', [App\Http\Controllers\OfficerController::class, 'updateStock'])->name('officer.stocks.update');
+    Route::prefix('products')->name('products.')->group(function () {
+        Route::get('/import', [OfficerController::class, 'importProducts'])->name('import');
+        Route::post('/import', [OfficerController::class, 'processImport'])->name('import.process');
+        Route::post('/store', [OfficerController::class, 'storeProduct'])->name('store');
+        Route::get('/export', [OfficerController::class, 'exportProducts'])->name('export');
 
-    // QR Code Scanning
-    Route::post('/scan-qr', [ProductController::class, 'scanQr'])->name('scan.qr');
+        // Product Items / Specifics
+        Route::put('/{id}', [OfficerController::class, 'updateProduct'])->name('update');
+        Route::delete('/{id}', [OfficerController::class, 'destroyProduct'])->name('destroy');
+        Route::get('/{id}/edit', [OfficerController::class, 'editProduct'])->name('edit');
+    });
 
-    // Report Analysis
-    Route::get('/report-analysis', [App\Http\Controllers\ReportAnalysisController::class, 'index'])->name('report.analysis');
+    Route::get('/products/create', [OfficerController::class, 'showCreateProduct'])->name('product.create');
+    Route::get('/products/{product}/edit', [OfficerController::class, 'showEditProduct'])->name('product.edit');
+    Route::get('/products/{product}/stock', [OfficerController::class, 'manageStock'])->name('product.stock');
+    Route::get('/products/{product}/items', [OfficerController::class, 'viewProductItems'])->name('product.items');
+
+    Route::post('/product-items/update-status', [OfficerController::class, 'updateProductItemStatus'])->name('product-items.update-status');
+
+    Route::post('/stocks/add', [OfficerController::class, 'addStock'])->name('stocks.add');
+    Route::post('/stocks/reduce', [OfficerController::class, 'reduceStock'])->name('stocks.reduce');
+    Route::put('/stocks/{id}', [OfficerController::class, 'updateStock'])->name('stocks.update');
 
 
+    // Customers
+    Route::prefix('customers')->name('customers.')->group(function () {
+        Route::get('/', [OfficerController::class, 'manageCustomers'])->name('manage');
+        Route::get('/import', [OfficerController::class, 'importCustomers'])->name('import');
+        Route::post('/import', [OfficerController::class, 'processCustomerImport'])->name('import.process');
+        Route::post('/', [OfficerController::class, 'storeCustomer'])->name('store');
+        Route::put('/{id}', [OfficerController::class, 'updateCustomer'])->name('update');
+        Route::delete('/{id}', [OfficerController::class, 'destroyCustomer'])->name('destroy');
+    });
 
+    // Categories
+    Route::prefix('categories')->name('categories.')->group(function () {
+        Route::get('/', [OfficerController::class, 'manageCategories'])->name('manage');
+        Route::get('/import', [OfficerController::class, 'importCategories'])->name('import');
+        Route::post('/import', [OfficerController::class, 'processCategoryImport'])->name('import.process');
+        Route::post('/', [OfficerController::class, 'storeCategory'])->name('store');
+        Route::put('/{id}', [OfficerController::class, 'updateCategory'])->name('update');
+        Route::delete('/{id}', [OfficerController::class, 'destroyCategory'])->name('destroy');
+    });
+
+    // Loans
+    Route::get('/loanmanagement', [OfficerLoanController::class, 'index'])->name('loanmanagement');
+    Route::prefix('loans')->name('loans.')->group(function () {
+        Route::get('/{id}', [OfficerLoanController::class, 'show'])->name('show');
+        Route::post('/{loanId}/payments', [OfficerLoanController::class, 'storePayment'])->name('payments.store');
+    });
+    Route::get('/loan-aging-analysis', [OfficerLoanController::class, 'agingAnalysis'])->name('loan.aging.analysis');
 });
 
+// ==============================================================================
+// PAYMENTS & EXTERNAL
+// ==============================================================================
 Route::get('/payment/checkout/{tenant}/{subscription}', [PaymentController::class, 'checkout'])->name('payment.checkout');
 Route::post('/payment/process', [PaymentController::class, 'process'])->name('payment.process');
+
+
+
+// QR Code Scanning
+Route::post('/scan-qr', [ProductController::class, 'scanQr'])->name('scan.qr');

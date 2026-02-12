@@ -4,13 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Sale extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes, \App\Traits\Auditable;
 
     protected $casts = [
         'due_date' => 'date',
+        'created_at' => 'datetime', // Cast it to ensure Carbon helps with formatting
     ];
 
     protected $fillable = [
@@ -26,6 +28,10 @@ class Sale extends Model
         'total_payments',
         'remaining_balance',
         'payment_status',
+        'created_at',
+        'created_by',
+        'profit_loss',
+        'import_batch',
     ];
 
     public function tenant()
@@ -43,9 +49,20 @@ class Sale extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+
     public function saleItems()
     {
         return $this->hasMany(SaleItem::class);
+    }
+
+    public function serviceOrders()
+    {
+        return $this->hasMany(ServiceOrder::class);
     }
 
     public function loanPayments()
@@ -80,5 +97,18 @@ class Sale extends Model
         } else {
             return 'Unpaid';
         }
+    }
+
+    protected static function booted()
+    {
+        static::deleting(function ($sale) {
+            foreach ($sale->saleItems as $item) {
+                $item->restoreStock();
+            }
+            Transaction::where('reference_id', $sale->id)
+                ->where('category', 'sale')
+                ->update(['status' => 'void']);
+            $sale->loanPayments()->delete();
+        });
     }
 }

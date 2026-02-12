@@ -222,7 +222,7 @@ return [
 
             'from' => [
                 'address' => env('MAIL_FROM_ADDRESS', 'petsonvedastuskisenya@itracomfertilizers.co.tz'),
-                'name' => env('MAIL_FROM_NAME', 'SMARTBIZ'),
+                'name' => env('MAIL_FROM_NAME', 'StockflowKP'),
             ],
         ],
 

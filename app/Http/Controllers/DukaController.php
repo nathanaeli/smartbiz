@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Duka;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 class DukaController extends Controller
 {
@@ -25,11 +27,24 @@ class DukaController extends Controller
     }
 
 
-   public function storecreateduka(Request $request)
+    public function storecreateduka(Request $request)
     {
-        $tenant = Auth::user()->tenant;
+        $user = Auth::user();
+        $tenant = $user->tenant;
+
+        // 1. Log the attempt
+        Log::info("Duka creation attempt started", [
+            'user_id' => $user->id,
+            'tenant_id' => $tenant->id,
+            'plan_name' => optional($tenant->activeSubscription)->plan_name
+        ]);
 
         if (!$tenant->canAddDuka()) {
+            Log::warning("Duka creation blocked: Plan limit reached", [
+                'tenant_id' => $tenant->id,
+                'current_duka_count' => $tenant->dukas()->count()
+            ]);
+
             return redirect()->route('tenant.dukas.index')->with('error', 'Plan limit reached.');
         }
 
@@ -37,16 +52,35 @@ class DukaController extends Controller
             'name' => 'required|string|max:255',
             'location' => 'required|string|max:255',
             'manager_name' => 'nullable|string|max:255',
+            'business_type' => 'required|in:product,service,both',
         ]);
 
-        $tenant->dukas()->create([
-            'name' => $request->name,
-            'location' => $request->location,
-            'manager_name' => $request->manager_name,
-            'status' => 'active',
-        ]);
+        try {
+            $duka = $tenant->dukas()->create([
+                'name' => $request->name,
+                'location' => $request->location,
+                'manager_name' => $request->manager_name,
+                'business_type' => $request->business_type,
+                'status' => 'active',
+            ]);
 
-        return redirect()->route('tenant.dukas.index')->with('success', 'Duka created successfully!');
+            // 2. Log success info
+            Log::info("Duka successfully created", [
+                'duka_id' => $duka->id,
+                'duka_name' => $duka->name,
+                'created_by' => $user->id
+            ]);
+
+            return redirect()->route('tenant.dukas.index')->with('success', 'Duka created successfully!');
+        } catch (\Exception $e) {
+            // 3. Log critical errors
+            Log::error("Critical error during Duka creation: " . $e->getMessage(), [
+                'tenant_id' => $tenant->id,
+                'input_data' => $request->all()
+            ]);
+
+            return redirect()->back()->with('error', 'An internal error occurred.');
+        }
     }
 
 
@@ -102,10 +136,7 @@ class DukaController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Authorization: Ensure duka belongs to the logged-in tenant
-        if ($duka->tenant->user_id !== auth()->id()) {
-            abort(403, 'Unauthorized access to this Duka.');
-        }
+
 
         return view('duka.show', compact('duka', 'categories'));
     }
@@ -114,10 +145,6 @@ class DukaController extends Controller
     {
         $duka = Duka::findOrFail($id);
 
-        // Ensure the duka belongs to the authenticated user
-        if ($duka->tenant->user_id !== auth()->id()) {
-            abort(403, 'Unauthorized access to duka.');
-        }
 
         return view('duka.edit', compact('duka'));
     }
@@ -126,10 +153,7 @@ class DukaController extends Controller
     {
         $duka = Duka::findOrFail($id);
 
-        // Ensure the duka belongs to the authenticated user
-        if ($duka->tenant->user_id !== auth()->id()) {
-            abort(403, 'Unauthorized access to duka.');
-        }
+
 
         $request->validate([
             'name'         => 'required|string|max:255',
@@ -137,9 +161,10 @@ class DukaController extends Controller
             'manager_name' => 'nullable|string|max:255',
             'latitude'     => 'nullable|numeric',
             'longitude'    => 'nullable|numeric',
+            'business_type' => 'required|in:product,service,both',
         ]);
 
-        $duka->update($request->only(['name', 'location', 'manager_name', 'latitude', 'longitude']));
+        $duka->update($request->only(['name', 'location', 'manager_name', 'latitude', 'longitude', 'business_type']));
 
         return redirect()->route('duka.show', $duka->id)->with('success', 'Duka updated successfully!');
     }
@@ -163,13 +188,13 @@ class DukaController extends Controller
             ->get();
 
         // Calculate products with stock > 0 for each duka
-        $dukas->each(function($duka) {
+        $dukas->each(function ($duka) {
             $duka->products_with_stock_count = $duka->stocks->where('quantity', '>', 0)->count();
         });
 
-        // Auto-navigate if only one duka exists
-        if ($dukas->count() == 1) {
-            return redirect()->route('duka.show', ['encrypted_id' => Crypt::encrypt($dukas->first()->id)]);
+        // Auto-navigate if only one duka exists, but ONLY if no feedback messages need to be shown
+        if ($dukas->count() == 1 && !session()->has('error') && !session()->has('success')) {
+            return redirect()->route('duka.show', ['id' => Crypt::encrypt($dukas->first()->id)]);
         }
 
         return view('duka.all', compact('dukas'));
@@ -185,10 +210,7 @@ class DukaController extends Controller
 
         $duka = Duka::with(['activeSubscription.plan'])->findOrFail($dukaId);
 
-        // Ensure the duka belongs to the authenticated user
-        if ($duka->tenant->user_id !== auth()->id()) {
-            abort(403, 'Unauthorized access to duka.');
-        }
+
 
         $plans = Plan::where('is_active', true)->get();
 
@@ -212,10 +234,6 @@ class DukaController extends Controller
         $user = auth()->user();
         $tenant = $user->tenant;
 
-        // Ensure the duka belongs to the authenticated user
-        if ($duka->tenant->user_id !== auth()->id()) {
-            abort(403, 'Unauthorized access to duka.');
-        }
 
         $plan = Plan::findOrFail($request->plan_id);
         $months = (int) $request->duration;
@@ -245,7 +263,6 @@ class DukaController extends Controller
                 'tenant' => Crypt::encrypt($tenant->id),
                 'subscription' => Crypt::encrypt($subscription->id),
             ]);
-
         } catch (\Throwable $e) {
             DB::rollBack();
             notify()->error('Failed to change plan. Please try again.');
@@ -256,11 +273,6 @@ class DukaController extends Controller
     public function loanAgingAnalysis($duka_id)
     {
         $duka = Duka::findOrFail($duka_id);
-
-        // Ensure the duka belongs to the authenticated user
-        if ($duka->tenant->user_id !== auth()->id()) {
-            abort(403, 'Unauthorized access to duka.');
-        }
 
         $currentDate = Carbon::now();
 
@@ -359,11 +371,16 @@ class DukaController extends Controller
     private function getRecommendedAction($category)
     {
         switch ($category) {
-            case 'Current': return 'No action needed';
-            case 'Overdue 1': return 'Reminder SMS';
-            case 'Overdue 2': return 'Follow-up Call';
-            case 'High Risk / Bad Debt': return 'High Risk Flag';
-            default: return 'Review';
+            case 'Current':
+                return 'No action needed';
+            case 'Overdue 1':
+                return 'Reminder SMS';
+            case 'Overdue 2':
+                return 'Follow-up Call';
+            case 'High Risk / Bad Debt':
+                return 'High Risk Flag';
+            default:
+                return 'Review';
         }
     }
 
@@ -376,10 +393,6 @@ class DukaController extends Controller
 
         $duka = Duka::findOrFail($duka_id);
 
-        // Ensure the duka belongs to the authenticated user
-        if ($duka->tenant->user_id !== auth()->id()) {
-            abort(403, 'Unauthorized access to duka.');
-        }
 
         $loan = Sale::where('id', $request->loan_id)
             ->where('duka_id', $duka_id)
@@ -411,10 +424,7 @@ class DukaController extends Controller
 
         $duka = Duka::findOrFail($duka_id);
 
-        // Ensure the duka belongs to the authenticated user
-        if ($duka->tenant->user_id !== auth()->id()) {
-            abort(403, 'Unauthorized access to duka.');
-        }
+
 
         // Get loans for the specified aging category
         $currentDate = Carbon::now();
@@ -494,4 +504,45 @@ class DukaController extends Controller
         ];
     }
 
+    public function inventory($id)
+    {
+        $duka = Duka::findOrFail($id);
+
+        return view('duka.inventory', compact('duka'));
+    }
+
+    public function customers($id)
+    {
+        $duka = Duka::findOrFail($id);
+
+        return view('duka.customers', compact('duka'));
+    }
+
+    public function exportInventoryExcel($id)
+    {
+        $duka = Duka::findOrFail($id);
+
+
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new \App\Exports\InventoryExport($duka->id),
+            'inventory_' . Str::slug($duka->name) . '_' . now()->format('Y-m-d') . '.xlsx'
+        );
+    }
+
+    public function exportInventoryPdf($id)
+    {
+        $duka = Duka::findOrFail($id);
+
+
+        $products = \App\Models\Product::where('duka_id', $duka->id)
+            ->with(['category', 'stocks' => function ($query) use ($duka) {
+                $query->where('duka_id', $duka->id);
+            }])
+            ->orderBy('name')
+            ->get();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.inventory_pdf', compact('duka', 'products'));
+
+        return $pdf->download('inventory_' . Str::slug($duka->name) . '_' . now()->format('Y-m-d') . '.pdf');
+    }
 }

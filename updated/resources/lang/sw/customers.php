@@ -1,0 +1,27 @@
+<?php
+
+return [
+    'manage_customers' => 'Simamia Wateja',
+    'add_new_customer' => 'Ongeza Mteja Mpya',
+    'import_excel' => 'Ingiza kutoka Excel',
+    'total_customers' => 'Jumla: wateja :count',
+    'name' => 'Jina',
+    'email' => 'Barua pepe',
+    'phone' => 'Simu',
+    'duka' => 'Duka',
+    'created_by' => 'Imetengenezwa na',
+    'created_at' => 'Imetengenezwa tarehe',
+    'actions' => 'Vitendo',
+    'no_customers_found' => 'Hakuna wateja waliopatikana',
+    'no_customers_desc' => 'Hakuna wateja katika dukas ulizopewa.',
+    'cancel' => 'Ghairi',
+    'edit_customer' => 'Hariri Mteja',
+    'update_customer' => 'Sasisha Mteja',
+    'delete_customer' => 'Futa Mteja',
+    'delete_confirm' => 'Je, una uhakika unataka kufuta :name?',
+    'delete_warning' => 'Onyo: Hatua hii haiwezi kubatilishwa.',
+    'address' => 'Anwani',
+    'select_duka' => 'Chagua Duka',
+    'auto_selected_duka' => 'Imechaguliwa kiotomatiki (duka pekee lililopewa)',
+    'add_customer' => 'Ongeza Mteja',
+];

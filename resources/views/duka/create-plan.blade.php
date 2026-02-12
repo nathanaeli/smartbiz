@@ -43,6 +43,18 @@
                                             </div>
                                         </div>
 
+                                        <!-- Business Type -->
+                                        <div class="form-group mb-4">
+                                            <label class="form-label fw-bold h6" for="business_type">Business Type <span class="text-danger">*</span></label>
+                                            <select name="business_type" id="business_type" class="form-select form-control-lg" required>
+                                                <option value="" disabled selected>Select business type...</option>
+                                                <option value="product">Retail / Products Only</option>
+                                                <option value="service">Services Only</option>
+                                                <option value="both">Both Products & Services</option>
+                                            </select>
+                                            <div class="form-text">Choose how this branch operates to enable the right features.</div>
+                                        </div>
+
                                         <!-- Plan Entitlement Info Box -->
                                         <div class="alert alert-soft-primary d-flex align-items-center mb-4" role="alert">
                                             <i class="ri-information-line fs-3 me-3"></i>
@@ -55,7 +67,7 @@
                                         <!-- Submit Button -->
                                         <div class="text-end">
                                             <button type="submit" class="btn btn-primary btn-lg px-5">
-                                               <i class="ri-add-circle-line me-2"></i>Create Shop
+                                                <i class="ri-add-circle-line me-2"></i>Create Shop
                                             </button>
                                         </div>
                                     </form>

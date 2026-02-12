@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
@@ -16,147 +17,114 @@ use App\Models\StockTransfer;
 use App\Models\StockTransferItem;
 use App\Models\TenantAccount;
 use App\Models\TenantOfficer;
+use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+
 use Illuminate\Support\Facades\Validator;
+use Exception;
 
 class OfficerApiController extends Controller
 {
-    /**
-     * Retrieves all necessary information for an officer's dashboard.
-     *
-     * This method gathers a comprehensive set of data required to populate the mobile
-     * dashboard for a specific officer. It fetches the officer's details, their
-     * active assignments, and all relevant business data (products, sales, customers, etc.)
-     * associated with their assigned shops (dukas) under a specific tenant.
-     *
-     * @param  \Illuminate\Http\Request  $request The incoming HTTP request.
-     * @param  int  $officerId The ID of the officer.
-     * @return \Illuminate\Http\JsonResponse A JSON response containing various data sets for the dashboard.
-     *         The JSON object includes:
-     *         - 'officer': The authenticated officer's User model.
-     *         - 'dukas': A collection of assigned Duka models.
-     *         - 'products': A collection of Product models from the assigned dukas.
-     *         - 'stocks': A collection of Stock models from the assigned dukas.
-     *         - 'sales': A collection of Sale models from the assigned dukas.
-     *         - 'saleItems': A collection of SaleItem models from the assigned dukas.
-     *         - 'categories': A collection of all ProductCategory models for the tenant.
-     *         - 'productItems': A collection of individual ProductItem models.
-     *         - 'customers': A collection of Customer models from the assigned dukas.
-     *         - 'tenantAccount': The TenantAccount model for the tenant.
-     *         - 'tenantid': The ID of the current tenant.
-     *         - 'dukaid': The ID of the officer's primary duka assignment.
-     *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If the officer or their active assignment is not found.
-     */
-    public function officerdashboardinformation(Request $request, $officerId)
+
+    public function officerdashboardinformation(Request $request)
     {
-        // Officer
-        $officer                      = User::findOrFail($officerId);
-        $officer->profile_picture_url = $officer->profile_picture_url;
+        // 1. Tambua User aliyelog-in kupitia Token
+        $user = auth()->user();
 
-        // Active assignment
-        $assignment = TenantOfficer::where('officer_id', $officer->id)
+
+        $assignment = TenantOfficer::where('officer_id', $user->id)
             ->where('status', true)
-            ->firstOrFail();
-
-        $tenantId = $assignment->tenant_id;
-
-        // Assigned dukas
-        $assignedDukas = TenantOfficer::where('tenant_id', $tenantId)
-            ->where('officer_id', $officer->id)
-            ->where('status', true)
-            ->with('duka')
-            ->get()
-            ->pluck('duka');
-
-        $dukaIds = $assignedDukas->pluck('id');
-
-        // RAW PRODUCTS (without with)
-        $products = Product::where('tenant_id', $tenantId)
-            ->whereIn('duka_id', $dukaIds)
-            ->whereNull('deleted_at') // ✅ exclude soft deleted
-            ->get()
-            ->map(function ($product) {
-                $product->image_url = $product->image_url;
-                return $product;
-            });
-
-        // RAW STOCKS (without with)
-        $stocks = Stock::whereIn('duka_id', $dukaIds)
-            ->whereHas('product', function ($q) use ($tenantId, $dukaIds) {
-                $q->where('tenant_id', $tenantId)
-                    ->whereIn('duka_id', $dukaIds)
-                    ->whereNull('deleted_at'); // ✅ hide stocks of deleted products
-            })
-            ->get();
-
-        // RAW SALES (without with)
-        $sales = Sale::where('tenant_id', $tenantId)
-            ->whereIn('duka_id', $dukaIds)
-            ->get();
-
-        // RAW SALE ITEMS
-        $saleItems = SaleItem::whereHas('sale', function ($q) use ($tenantId, $dukaIds) {
-            $q->where('tenant_id', $tenantId)
-                ->whereIn('duka_id', $dukaIds);
-        })
-            ->get();
-
-        // RAW CATEGORIES
-        $categories = ProductCategory::where('tenant_id', $tenantId)
-            ->get();
-
-        // RAW PRODUCT ITEMS
-        $productItems = ProductItem::whereHas('product', function ($q) use ($tenantId, $dukaIds) {
-            $q->where('tenant_id', $tenantId)
-                ->whereIn('duka_id', $dukaIds);
-        })
-            ->get();
-
-        // RAW CUSTOMERS
-        $customers = Customer::where('tenant_id', $tenantId)
-            ->whereIn('duka_id', $dukaIds)
-            ->get();
-
-        $loanPayments = $sales->mapWithKeys(function ($sale) {
-            $payments = LoanPayment::where('sale_id', $sale->id)->get();
-            return [$sale->id => $payments];
-        });
-
-        // RAW TENANT ACCOUNT
-        $tenantAccount = TenantAccount::where('tenant_id', $tenantId)
             ->first();
 
-        return response()->json([
-            'officer'       => $officer,
-            'dukas'         => $assignedDukas,
-            'products'      => $products,
-            'stocks'        => $stocks,
-            'sales'         => $sales,
-            'saleItems'     => $saleItems,
-            'categories'    => $categories,
-            'productItems'  => $productItems,
-            'customers'     => $customers,
-            'tenantAccount' => $tenantAccount,
-            'tenantid'      => $tenantId,
-            'dukaid'        => $assignment->duka_id,
-            'loanpaynment'  => $loanPayments,
-        ]);
+
+        try {
+            $tenantId = $assignment->tenant_id;
+            $dukaIds = TenantOfficer::where('tenant_id', $tenantId)
+                ->where('officer_id', $user->id)
+                ->where('status', true)
+                ->pluck('duka_id');
+
+            $assignedDukas = Duka::whereIn('id', $dukaIds)->get();
+
+
+            $products = Product::where('tenant_id', $tenantId)
+                ->whereIn('duka_id', $dukaIds)
+                ->whereNull('deleted_at')
+                ->get()
+                ->each(fn($p) => $p->append('image_url'));
+
+            $stocks = Stock::whereIn('duka_id', $dukaIds)
+                ->whereHas('product', fn($q) => $q->whereNull('deleted_at'))
+                ->get();
+
+            // REFIX: FIFO Consumption (Mstari wa 84 Fix)
+            $stockMovements = StockMovement::whereIn('stock_id', $stocks->pluck('id'))
+                ->whereIn('type', ['in', 'add'])
+                ->where('quantity_remaining', '>', 0) // Tumetumia -> badala ya .
+                ->get();
+
+            $sales = Sale::where('tenant_id', $tenantId)
+                ->whereIn('duka_id', $dukaIds)
+                ->get();
+
+            Log::info($sales);
+
+            $saleIds = $sales->pluck('id');
+
+            $saleItems = SaleItem::whereIn('sale_id', $saleIds)->get();
+
+            $categories = ProductCategory::where('tenant_id', $tenantId)->get();
+
+            $productItems = ProductItem::whereHas('product', fn($q) => $q->whereIn('duka_id', $dukaIds))
+                ->where('status', 'available')
+                ->get();
+
+            $customers = Customer::where('tenant_id', $tenantId)
+                ->whereIn('duka_id', $dukaIds)
+                ->get();
+
+            $loanPayments = LoanPayment::whereIn('sale_id', $saleIds)
+                ->get()
+                ->groupBy('sale_id');
+
+            $tenantAccount = TenantAccount::where('tenant_id', $tenantId)->first();
+
+            Log::info("Data compiled successfully for Officer ID: {$user->id}");
+
+            return response()->json([
+                'success'         => true,
+                'officer'         => $user,
+                'dukas'           => $assignedDukas,
+                'products'        => $products,
+                'stocks'          => $stocks,
+                'stockMovements'  => $stockMovements,
+                'sales'           => $sales,
+                'saleItems'       => $saleItems,
+                'categories'      => $categories,
+                'productItems'    => $productItems,
+                'customers'       => $customers,
+                'tenantAccount'   => $tenantAccount,
+                'tenantid'        => $tenantId,
+                'active_duka_id'  => $assignment->duka_id,
+                'loanPayments'    => $loanPayments,
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Critical Error on Dashboard (User {$user->id}): " . $e->getMessage());
+            Log::error($e->getTraceAsString()); // Hii itatusaidia kuona kosa limeanzia wapi hasa
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Kuna kosa limetokea wakati wa kuandaa data.',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
     }
 
-    /**
-     * Unassign officer from a duka
-     *
-     * Allows an officer to unassign themselves from a specific duka they are assigned to.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @param int $dukaId
-     * @return \Illuminate\Http\JsonResponse
-     */
+
     public function apiUnassignOfficerFromDuka(Request $request, $dukaId)
     {
         $user = auth()->user();
@@ -269,7 +237,7 @@ class OfficerApiController extends Controller
     }
 
 
-      public function sync(Request $request)
+    public function sync(Request $request)
     {
         $user = auth()->user();
 
@@ -676,7 +644,7 @@ class OfficerApiController extends Controller
                 'base_price'    => $product->base_price,
                 'selling_price' => $product->selling_price,
                 'profit_margin' => $product->base_price > 0 ?
-                round((($product->selling_price - $product->base_price) / $product->base_price) * 100, 2) : 0,
+                    round((($product->selling_price - $product->base_price) / $product->base_price) * 100, 2) : 0,
                 'is_active'     => $product->is_active,
                 'image'         => $product->image_url,
                 'barcode'       => $product->barcode,
@@ -743,27 +711,81 @@ class OfficerApiController extends Controller
         ]);
     }
 
+    public function apiListProducts()
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            \Log::warning("Jaribio la kupata bidhaa bila login.");
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        \Log::info("Officer {$user->name} (ID: {$user->id}) anajaribu kuorodhesha bidhaa.");
+
+        // 1. Get the officer's active assignment
+        $assignment = \App\Models\TenantOfficer::where('officer_id', $user->id)
+            ->where('status', true)
+            ->with('duka')
+            // Tunatumia first() badala ya firstOrFail kuzuia 404 crash
+            ->first();
+
+        if (!$assignment) {
+            \Log::error("ListProducts Error: Officer ID {$user->id} hana assignment hai.");
+            return response()->json([
+                'success' => false,
+                'message' => 'Hujapangiwa duka lolote kwa sasa. Wasiliana na Admin.'
+            ], 403);
+        }
+
+        try {
+            \Log::info("Kuchukua bidhaa kwa ajili ya Duka: {$assignment->duka->name} (ID: {$assignment->duka_id})");
+            $products = \App\Models\Product::where('tenant_id', $assignment->tenant_id)
+                ->where('duka_id', $assignment->duka_id)
+                ->with('category:id,name')
+                ->whereNull('deleted_at')
+                ->get()
+                ->map(function ($product) {
+                    return [
+                        'id'            => $product->id,
+                        'name'          => $product->name,
+                        'sku'           => $product->sku,
+                        'selling_price' => (float) $product->selling_price,
+                        'current_stock' => (int) $product->current_stock,
+                        'image'         => $product->image_url,
+                        'category_name' => $product->category->name ?? 'Uncategorized',
+                    ];
+                });
+
+            \Log::info("Jumla ya bidhaa zilizopatikana: " . $products->count());
+
+            // 3. Return response
+            return response()->json([
+                'success' => true,
+                'data'    => $products,
+                'shop'    => $assignment->duka->name ?? 'N/A'
+            ]);
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Imeshindwa kupata bidhaa kutokana na kosa la server.'
+            ], 500);
+        }
+    }
+
     public function apiAddProduct(Request $request)
     {
         $user = auth()->user();
 
-        // Role check
-        if (! $user->hasRole('officer')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized: Only officers can add products.',
-            ], 403);
-        }
-
-        // Permission check
-        if (! $user->hasPermission('adding_product')) {
+        // 1. Permission Check
+        if (!$user->hasPermission('adding_product')) {
             return response()->json([
                 'success' => false,
                 'message' => 'You do not have permission to add products.',
             ], 403);
         }
 
-        // Image input validation (mutually exclusive)
+
         $hasImageFile   = $request->hasFile('image');
         $hasImageBase64 = $request->filled('image') && is_string($request->image);
         $hasImageUrl    = $request->filled('image_url');
@@ -775,50 +797,16 @@ class OfficerApiController extends Controller
             ], 400);
         }
 
-        if ($hasImageFile && $hasImageBase64) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Please choose only one: upload a file OR send base64 image data.',
-            ], 400);
-        }
 
-        // Validate uploaded file (if any)
-        if ($hasImageFile) {
-            $image = $request->file('image');
-
-            if (! $image->isValid()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid image file uploaded. Please try again.',
-                ], 400);
-            }
-
-            if ($image->getSize() > 2 * 1024 * 1024) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Image is too large. Maximum size is 2MB.',
-                ], 400);
-            }
-
-            $allowed = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
-            if (! in_array($image->getMimeType(), $allowed)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid image format. Only JPEG, PNG, JPG, and GIF are allowed.',
-                ], 400);
-            }
-        }
-
-        // Validate form data
         $validator = Validator::make($request->all(), [
             'name'          => 'required|string|max:255',
             'description'   => 'nullable|string',
-            'unit'          => 'required|in:pcs,kg,g,ltr,ml,box,bag,pack,set,pair,dozen,carton',
+            'unit'          => 'required',
             'buying_price'  => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0|gte:buying_price',
             'category_name' => 'nullable|string|max:255',
             'initial_stock' => 'nullable|integer|min:0',
-            'track_items'   => 'sometimes|boolean', // New: whether to create individual items
+            'track_items'   => 'nullable',
             'barcode'       => 'nullable|string|max:255|unique:products,barcode',
             'image_url'     => 'nullable|url|required_without_all:image',
         ]);
@@ -831,142 +819,65 @@ class OfficerApiController extends Controller
             ], 422);
         }
 
-        // Get tenant and duka assignment
+        // 4. Identify Officer Workplace (Duka)
         $assignment = TenantOfficer::where('officer_id', $user->id)
             ->where('status', true)
             ->first();
 
-        if (! $assignment) {
+        if (!$assignment) {
             return response()->json([
                 'success' => false,
-                'message' => 'You are not assigned to any active shop (duka). Contact admin.',
+                'message' => 'You are not assigned to any active shop (duka).',
             ], 403);
         }
 
         $tenantId = $assignment->tenant_id;
+        $dukaId   = $assignment->duka_id;
 
-        // Get the first assigned duka ID for the officer
-        $dukaId = TenantOfficer::where('tenant_id', $tenantId)
-            ->where('officer_id', $user->id)
-            ->where('status', true)
-            ->pluck('duka_id')
-            ->first();
-
-        if (! $dukaId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No shop assigned. Please contact your administrator.',
-            ], 400);
-        }
-
-        // Handle category (smart create/find)
+        // 5. Category Management (Find or Create)
         $categoryId = null;
         if ($request->category_name) {
-            $category = ProductCategory::where('tenant_id', $tenantId)
-                ->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($request->category_name) . '%'])
-                ->where('status', 'active')
-                ->first();
-
-            if (! $category) {
-                $category = ProductCategory::create([
-                    'name'        => $request->category_name,
-                    'description' => 'Auto-created from product addition',
-                    'status'      => 'active',
-                    'tenant_id'   => $tenantId,
-                    'created_by'  => $user->id,
-                ]);
-            }
+            $category = ProductCategory::firstOrCreate(
+                ['name' => $request->category_name, 'tenant_id' => $tenantId],
+                ['status' => 'active', 'created_by' => $user->id]
+            );
             $categoryId = $category->id;
         }
 
-        // Generate SKU
-        $sku = $this->generateProductSKU($request->name, $request->initial_stock ?? 0);
 
-        // Handle image
-        $imagePath = null;
-
+        $imagePath = $this->handleImageUpload($request);
+        DB::beginTransaction();
         try {
-            if ($hasImageFile) {
-                $image      = $request->file('image');
-                $imageName  = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
-                $uploadPath = public_path('storage/products');
-                if (! file_exists($uploadPath)) {
-                    mkdir($uploadPath, 0755, true);
-                }
-
-                $image->move($uploadPath, $imageName);
-                $imagePath = $imageName;
-            } elseif ($hasImageBase64) {
-                $imageData = $request->image;
-                if (preg_match('/^data:image\/(\w+);base64,/', $imageData, $matches)) {
-                    $extension = $matches[1];
-                    $imageData = substr($imageData, strpos($imageData, ',') + 1);
-                } else {
-                    $extension = 'png';
-                }
-
-                $decoded = base64_decode($imageData);
-                if ($decoded === false || strlen($decoded) > 2 * 1024 * 1024) {
-                    return response()->json(['success' => false, 'message' => 'Invalid or oversized base64 image.'], 400);
-                }
-
-                $imageName  = time() . '_' . uniqid() . '.' . $extension;
-                $uploadPath = public_path('storage/products');
-                if (! file_exists($uploadPath)) {
-                    mkdir($uploadPath, 0755, true);
-                }
-
-                file_put_contents($uploadPath . '/' . $imageName, $decoded);
-                $imagePath = $imageName;
-            } elseif ($hasImageUrl) {
-                $imagePath = $request->image_url;
-            }
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to process image. Please try again.',
-            ], 500);
-        }
-
-        // Create product
-        try {
+            // Create the main Product record
             $product = Product::create([
-                'name'          => $request->name,
-                'sku'           => $sku,
-                'description'   => $request->description,
-                'unit'          => $request->unit,
-                'base_price'    => $request->buying_price,
-                'selling_price' => $request->selling_price,
-                'category_id'   => $categoryId,
-                'image'         => $imagePath,
-                'barcode'       => $request->barcode,
                 'tenant_id'     => $tenantId,
                 'duka_id'       => $dukaId,
+                'category_id'   => $categoryId,
+                'name'          => $request->name,
+                'sku'           => $this->generateProductSKU($request->name, $request->initial_stock ?? 0),
+                'description'   => $request->description,
+                'unit'          => $request->unit,
+                'base_price'    => $request->buying_price, // Saved for legacy tracking
+                'selling_price' => $request->selling_price,
+                'image'         => $imagePath,
+                'barcode'       => $request->barcode,
                 'is_active'     => true,
             ]);
 
-            $initialStock = $request->initial_stock ?? 0;
-            $trackItems   = $request->boolean('track_items', false); // Default: false (bulk only)
+            $initialStock = (int)($request->initial_stock ?? 0);
 
-            $messageParts = ["Product '{$product->name}' added successfully!"];
-
-            // Handle stock
             if ($initialStock > 0) {
-                if ($trackItems) {
-                    // Create individual ProductItem records (e.g., for phones, laptops)
-                    $itemsCreated = 0;
+                if ($request->boolean('track_items')) {
+                    // Individual item tracking (QR Codes)
                     for ($i = 0; $i < $initialStock; $i++) {
                         ProductItem::create([
                             'product_id' => $product->id,
                             'qr_code'    => ProductItem::generateQrCode(),
                             'status'     => 'available',
                         ]);
-                        $itemsCreated++;
                     }
-
-                    $messageParts[] = "$itemsCreated individual items created with unique QR codes.";
                 } else {
-                    // Bulk stock entry
+                    // Bulk Stock Entry (FIFO Compatible)
                     $stock = Stock::create([
                         'product_id'      => $product->id,
                         'duka_id'         => $dukaId,
@@ -974,43 +885,47 @@ class OfficerApiController extends Controller
                         'last_updated_by' => $user->id,
                     ]);
 
+                    // Create the "IN" batch for profit tracking
                     StockMovement::create([
-                        'stock_id'          => $stock->id,
-                        'user_id'           => $user->id,
-                        'type'              => 'add',
-                        'quantity_change'   => $initialStock,
-                        'previous_quantity' => 0,
-                        'new_quantity'      => $initialStock,
-                        'reason'            => 'Initial stock when adding new product',
+                        'stock_id'           => $stock->id,
+                        'user_id'            => $user->id,
+                        'type'               => 'in', // Correct type for FIFO consumption
+                        'quantity_change'    => $initialStock,
+                        'quantity_remaining' => $initialStock, // Critical for sales logic
+                        'unit_cost'          => $request->buying_price,
+                        'unit_price'         => $request->selling_price,
+                        'previous_quantity'  => 0,
+                        'new_quantity'       => $initialStock,
+                        'reason'             => 'Initial stock addition',
                     ]);
-
-                    $messageParts[] = "Initial bulk stock of $initialStock units recorded.";
                 }
             }
 
+            DB::commit();
+            Log::info("Product created with FIFO stock", ['id' => $product->id, 'qty' => $initialStock]);
+
             return response()->json([
                 'success' => true,
-                'message' => implode(' ', $messageParts),
-                'data'    => [
-                    'product' => [
-                        'id'            => $product->id,
-                        'name'          => $product->name,
-                        'sku'           => $product->sku,
-                        'selling_price' => $product->selling_price,
-                        'image_url'     => $product->image_url,
-                        'initial_stock' => $initialStock,
-                        'track_items'   => $trackItems,
-                        'items_created' => $trackItems ? ($initialStock ?? 0) : 0,
-                    ],
-                ],
+                'message' => "Product '{$product->name}' added successfully!",
+                'data'    => $product
             ], 201);
-
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to save product. Please try again later.',
-            ], 500);
+            DB::rollBack();
+            Log::error("Product creation failed", ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Server error: ' . $e->getMessage()], 500);
         }
+    }
+
+
+    private function handleImageUpload(Request $request)
+    {
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $name = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+            $image->move(public_path('storage/products'), $name);
+            return $name;
+        }
+        return $request->image_url ?? null;
     }
 
     /**
@@ -1026,10 +941,6 @@ class OfficerApiController extends Controller
     {
         $user = auth()->user();
 
-        // Verify user is an officer
-        if (! $user->hasRole('officer')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
 
         // Get tenant IDs for this officer
         $tenantIds = TenantOfficer::where('officer_id', $user->id)
@@ -1163,16 +1074,12 @@ class OfficerApiController extends Controller
     {
         $user = auth()->user();
 
-        // Verify user is an officer
-        if (! $user->hasRole('officer')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
 
-        // Check if officer has edit_product permission
-        if (! $user->hasPermission('edit_product')) {
-            return response()->json(['error' => 'You do not have permission to edit products'], 403);
-        }
-
+        Log::info("Product update attempt started", [
+            'officer_id' => $user->id,
+            'product_id' => $productId,
+            'ip_address' => $request->all()
+        ]);
         // Custom validation for image handling
         if ($request->hasFile('image') && $request->filled('image_url')) {
             return response()->json(['error' => 'Cannot provide both image file and image URL. Choose one.'], 400);
@@ -1199,8 +1106,8 @@ class OfficerApiController extends Controller
         $request->validate([
             'name'          => 'required|string|max:255',
             'description'   => 'nullable|string',
-            'unit'          => 'required|in:pcs,kg,g,ltr,ml,box,bag,pack,set,pair,dozen,carton',
-            'buying_price'  => 'required|numeric|min:0',
+            'unit'          => 'required',
+            'buying_price'  => 'required',
             'selling_price' => 'required|numeric|min:0|gte:buying_price',
             'category_name' => 'nullable|string|max:255',
             'is_active'     => 'required|boolean',
@@ -1223,7 +1130,7 @@ class OfficerApiController extends Controller
             ->where('tenant_id', $tenantId)
             ->firstOrFail();
 
-                                             // Smart category assignment
+        // Smart category assignment
         $categoryId = $product->category_id; // Keep existing if not provided
         if ($request->category_name) {
             // Try to find existing category
@@ -1245,7 +1152,7 @@ class OfficerApiController extends Controller
             $categoryId = $category->id;
         }
 
-                                      // Handle image upload or URL
+        // Handle image upload or URL
         $imagePath = $product->image; // Keep existing if not provided
         if ($request->hasFile('image')) {
             try {
@@ -1308,7 +1215,7 @@ class OfficerApiController extends Controller
                     'buying_price'  => number_format($product->base_price, 2),
                     'selling_price' => $product->selling_price,
                     'profit_margin' => $product->base_price > 0 ?
-                    round((($product->selling_price - $product->base_price) / $product->base_price) * 100, 2) : 0,
+                        round((($product->selling_price - $product->base_price) / $product->base_price) * 100, 2) : 0,
                     'category'      => $product->category ? [
                         'id'   => $product->category->id,
                         'name' => $product->category->name,
@@ -1541,50 +1448,38 @@ class OfficerApiController extends Controller
     {
         $user = auth()->user();
 
-        // Verify user is an officer
-        if (! $user->hasRole('officer')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        try {
+            // 1. Pata assignment ya Tenant
+            $assignment = TenantOfficer::where('officer_id', $user->id)
+                ->where('status', true)
+                ->first();
 
-        // Check if officer has delete_product permission
-        if (! $user->hasPermission('delete_product')) {
-            return response()->json(['error' => 'You do not have permission to delete products'], 403);
-        }
+            if (!$assignment) {
+                Log::warning("Unauthorized delete attempt: User {$user->id} has no active assignment.");
+                return response()->json(['error' => 'No active assignments found'], 403);
+            }
 
-        // Get tenant ID from officer's assignments
-        $assignment = TenantOfficer::where('officer_id', $user->id)
-            ->where('status', true)
-            ->first();
+            $tenantId = $assignment->tenant_id;
 
-        if (! $assignment) {
-            return response()->json(['error' => 'No active assignments found'], 403);
-        }
+            // 2. Tafuta bidhaa
+            $product = Product::where('id', $productId)
+                ->where('tenant_id', $tenantId)
+                ->firstOrFail();
 
-        $tenantId = $assignment->tenant_id;
+            $productName = $product->name;
 
-        // Find product and verify ownership
-        $product = Product::where('id', $productId)
-            ->where('tenant_id', $tenantId)
-            ->firstOrFail();
+            // Anza kurekodi mchakato wa kufuta
+            Log::info("Deletion started: User {$user->id} is deleting product '{$productName}' (ID: {$productId}) for Tenant {$tenantId}.");
 
-        // Check if product has sales
-        $hasSales = Sale::whereHas('saleItems', function ($q) use ($productId) {
-            $q->where('product_id', $productId);
-        })->exists();
-
-        // If product has sales, reset any remaining stock to 0
-        if ($hasSales) {
+            // 3. Safisha hisa (stock) zote
             $stocksToReset = Stock::where('product_id', $productId)
                 ->where('quantity', '>', 0)
                 ->get();
 
             foreach ($stocksToReset as $stock) {
                 $previousQuantity = $stock->quantity;
-
-                // Reset stock to 0
                 $stock->update(['quantity' => 0]);
 
-                // Record stock movement for the reset
                 StockMovement::create([
                     'stock_id'          => $stock->id,
                     'user_id'           => $user->id,
@@ -1592,66 +1487,69 @@ class OfficerApiController extends Controller
                     'quantity_change'   => -$previousQuantity,
                     'previous_quantity' => $previousQuantity,
                     'new_quantity'      => 0,
-                    'reason'            => 'Stock reset to 0 for product deletion',
+                    'reason'            => 'Stock cleared for final product deletion',
                 ]);
+
+                Log::info("Stock cleared: ID {$stock->id} reduced from {$previousQuantity} to 0.");
             }
-        } else {
-            // If no sales, check if product has stock (normal case)
-            $hasStock = Stock::where('product_id', $productId)
-                ->where('quantity', '>', 0)
-                ->exists();
 
-            if ($hasStock) {
-                return response()->json([
-                    'error' => 'Cannot delete product with existing stock. Reduce stock to zero first.',
-                ], 400);
+            // 4. Futa rekodi zinazohusiana (Child Records)
+            $stockCount = Stock::where('product_id', $productId)->count();
+            Stock::where('product_id', $productId)->delete();
+
+            StockMovement::whereHas('stock', function ($q) use ($productId) {
+                $q->where('product_id', $productId);
+            })->delete();
+
+            // Futa Transfers
+            $stockTransfers = StockTransfer::where('product_id', $productId)->get();
+            foreach ($stockTransfers as $transfer) {
+                $transferItemId = $transfer->stock_transfer_id;
+                $transfer->delete();
+
+                if (StockTransfer::where('stock_transfer_id', $transferItemId)->count() == 0) {
+                    StockTransferItem::where('id', $transferItemId)->delete();
+                }
             }
-        }
 
-        // Delete associated stocks and movements
-        Stock::where('product_id', $productId)->delete();
-        StockMovement::whereHas('stock', function ($q) use ($productId) {
-            $q->where('product_id', $productId);
-        })->delete();
+            Log::info("Related records removed: {$stockCount} stock entries and associated transfers deleted.");
 
-        // Delete associated stock transfers
-        $stockTransfers = StockTransfer::where('product_id', $productId)->get();
-        foreach ($stockTransfers as $transfer) {
-            $transferItemId = $transfer->stock_transfer_id;
-
-            // Delete the transfer
-            $transfer->delete();
-
-            // Check if the transfer item has any remaining transfers
-            $remainingTransfers = StockTransfer::where('stock_transfer_id', $transferItemId)->count();
-            if ($remainingTransfers == 0) {
-                // Delete the orphaned transfer item
-                StockTransferItem::where('id', $transferItemId)->delete();
+            // 5. Futa picha
+            if ($product->image && !filter_var($product->image, FILTER_VALIDATE_URL)) {
+                $imagePath = public_path('storage/products/' . $product->image);
+                if (file_exists($imagePath)) {
+                    unlink($imagePath);
+                    Log::info("File deleted: Image path {$imagePath} removed.");
+                }
             }
-        }
 
-        // Delete product image if exists and is a local file
-        if ($product->image && ! filter_var($product->image, FILTER_VALIDATE_URL) && file_exists(public_path('storage/products/' . $product->image))) {
-            unlink(public_path('storage/products/' . $product->image));
-        }
+            // 6. Futa bidhaa yenyewe
+            $product->delete();
 
-        // Delete product
-        $productName = $product->name;
-        $product->delete();
+            Log::info("Deletion successful: Product '{$productName}' (ID: {$productId}) fully removed by User {$user->id}.");
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Product deleted successfully',
-            'data'    => [
-                'deleted_product' => [
-                    'id'         => $productId,
-                    'name'       => $productName,
-                    'deleted_at' => now(),
+            return response()->json([
+                'success' => true,
+                'message' => 'Product and all related data deleted successfully',
+                'data'    => [
+                    'deleted_product' => [
+                        'id'         => $productId,
+                        'name'       => $productName,
+                        'deleted_at' => now(),
+                    ],
                 ],
-            ],
-        ]);
-    }
+            ]);
+        } catch (\Exception $e) {
+            // Rekodi kosa likitokea (Error Logging)
+            Log::error("Deletion failed: Error deleting product {$productId}. Message: {$e->getMessage()}");
 
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while deleting the product.',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
+    }
     public function apiGetProductItemsByProductId($productId)
     {
         $items = ProductItem::where('product_id', $productId)
@@ -1680,27 +1578,70 @@ class OfficerApiController extends Controller
             'product_id' => 'required|exists:products,id',
             'qr_code'    => 'required|string|max:255|unique:product_items,qr_code',
             'status'     => 'required|in:available,sold,damaged',
+            'duka_id'    => 'required|exists:dukas,id',
         ]);
 
-        $item = ProductItem::create([
-            'product_id' => $validated['product_id'],
-            'qr_code'    => $validated['qr_code'],
-            'status'     => $validated['status'],
-            'created_by' => Auth::id(), // 👈 authenticated user
-        ]);
+        $userId = Auth::id();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Product item created successfully',
-            'data'    => [
-                'id'         => $item->id,
-                'product_id' => $item->product_id,
-                'qr_code'    => $item->qr_code,
-                'status'     => $item->status,
-                'created_by' => $item->created_by,
-                'created_at' => $item->created_at->toDateTimeString(),
-            ],
-        ], 201);
+        try {
+            return DB::transaction(function () use ($validated, $userId) {
+                // 1. Tengeneza Item
+                $item = ProductItem::create([
+                    'product_id' => $validated['product_id'],
+                    'qr_code'    => $validated['qr_code'],
+                    'status'     => $validated['status'],
+                    'created_by' => $userId,
+                ]);
+
+                Log::info("Product Item Created: QR {$item->qr_code} by User ID {$userId}");
+
+                // 2. Tafuta au tengeneza Stock
+                $stock = Stock::firstOrCreate(
+                    [
+                        'product_id' => $validated['product_id'],
+                        'duka_id'    => $validated['duka_id'],
+                    ],
+                    ['quantity' => 0]
+                );
+
+                $previousQuantity = $stock->quantity;
+
+                // 3. Ongeza Stock
+                $stock->increment('quantity');
+                $newQuantity = $previousQuantity + 1;
+
+                // 4. Rekodi Stock Movement
+                StockMovement::create([
+                    'stock_id'          => $stock->id,
+                    'user_id'           => $userId,
+                    'type'              => 'add',
+                    'quantity_change'   => 1,
+                    'previous_quantity' => $previousQuantity,
+                    'new_quantity'      => $newQuantity,
+                    'reason'            => "New item registered (QR: {$item->qr_code})",
+                ]);
+
+                // Log ya mafanikio ya kusasisha hesabu
+                Log::info("Stock Updated for Duka {$validated['duka_id']}: Product ID {$validated['product_id']} increased from {$previousQuantity} to {$newQuantity}.");
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Product item created and stock updated.',
+                    'data'    => $item
+                ], 201);
+            });
+        } catch (\Exception $e) {
+            // Log kosa likitokea
+            Log::error("Product Item Store Failed: " . $e->getMessage(), [
+                'user_id' => $userId,
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Imetokea hitilafu wakati wa kusajili bidhaa.'
+            ], 500);
+        }
     }
 
     // Get Sales List with filtering and pagination
@@ -1945,278 +1886,7 @@ class OfficerApiController extends Controller
     }
 
     // Create Sale API
-    public function apiCreateSale(Request $request)
-    {
-        $user    = auth()->user();
-        $allData = $request->all();
 
-        Log::info('Sale creation request initiated', [
-            'user_id'      => $user->id,
-            'user_name'    => $user->name,
-            'request_data' => $request->all(),
-        ]);
-
-        $request->validate([
-            'customer_id'             => 'nullable|exists:customers,id',
-            'items'                   => 'required|array|min:1',
-            'items.*.product_id'      => 'required|exists:products,id',
-            'items.*.quantity'        => 'required|integer|min:1',
-            'items.*.unit_price'      => 'required|numeric|min:0',
-            'items.*.discount_amount' => 'nullable|numeric|min:0',
-            'discount_amount'         => 'nullable|numeric|min:0',
-            'discount_reason'         => 'nullable|string',
-            'is_loan'                 => 'boolean',
-            'due_date'                => 'nullable|date|after_or_equal:today',
-        ]);
-
-        Log::info('Request validation passed', [
-            'user_id'         => $user->id,
-            'customer_id'     => $request->customer_id,
-            'items_count'     => count($request->items),
-            'discount_amount' => $request->discount_amount,
-            'is_loan'         => $request->boolean('is_loan', false),
-            'due_date'        => $request->due_date,
-        ]);
-
-        $assignedDukas = TenantOfficer::with('duka')
-            ->where('officer_id', $user->id)
-            ->where('status', true)
-            ->get();
-
-        Log::info('Assigned dukas retrieved for officer', [
-            'user_id'              => $user->id,
-            'assigned_dukas_count' => $assignedDukas->count(),
-            'assigned_dukas'       => $assignedDukas->map(function ($assignment) {
-                return [
-                    'duka_id'   => $assignment->duka_id,
-                    'duka_name' => $assignment->duka->name,
-                    'tenant_id' => $assignment->tenant_id,
-                ];
-            }),
-        ]);
-
-        if ($assignedDukas->isEmpty()) {
-            Log::warning('No active duka assignments found for officer', [
-                'user_id'           => $user->id,
-                'assignments_count' => TenantOfficer::where('officer_id', $user->id)->count(),
-            ]);
-            return response()->json(['error' => 'No active duka assignments found'], 403);
-        }
-
-        $primaryAssignment = $assignedDukas->first();
-        $assignedDukaId    = $primaryAssignment->duka_id;
-        $tenantId          = $primaryAssignment->tenant_id;
-        $dukaId            = $assignedDukaId;
-
-        Log::info('Officer duka assignment found', [
-            'user_id'              => $user->id,
-            'tenant_id'            => $tenantId,
-            'assigned_duka_id'     => $assignedDukaId,
-            'duka_name'            => $primaryAssignment->duka->name,
-            'total_assigned_dukas' => $assignedDukas->count(),
-        ]);
-
-        // Always use the officer's assigned duka ID (ignore any duka_id from request for security)
-        $dukaId = $assignedDukaId;
-
-        Log::info('Using officer assigned duka for sale creation', [
-            'user_id'          => $user->id,
-            'assigned_duka_id' => $dukaId,
-            'duka_name'        => $primaryAssignment->duka->name,
-        ]);
-
-        // Verify customer belongs to tenant (if provided)
-        if ($request->customer_id) {
-            $customer = \App\Models\Customer::where('id', $request->customer_id)
-                ->where('tenant_id', $tenantId)
-                ->first();
-
-            if (! $customer) {
-                return response()->json(['error' => 'Invalid customer selected'], 400);
-            }
-        }
-
-        DB::beginTransaction();
-        try {
-            $totalAmount = 0;
-            $totalProfit = 0;
-
-            // Calculate totals and validate stock
-            foreach ($request->items as $item) {
-                $product = Product::where('id', $item['product_id'])
-                    ->where('tenant_id', $tenantId)
-                    ->first();
-
-                if (! $product) {
-                    Log::error('Product not found or does not belong to officer tenant', [
-                        'user_id'    => $user->id,
-                        'product_id' => $item['product_id'],
-                        'tenant_id'  => $tenantId,
-                        'duka_id'    => $dukaId,
-                    ]);
-                    throw new \Exception('Product not found or you do not have permission to sell this product');
-                }
-
-                // Check stock availability
-                $stock = Stock::where('product_id', $item['product_id'])
-                    ->where('duka_id', $dukaId)
-                    ->first();
-
-                Log::info('Stock check for product', [
-                    'user_id'            => $user->id,
-                    'product_id'         => $item['product_id'],
-                    'product_name'       => $product->name,
-                    'duka_id'            => $dukaId,
-                    'requested_quantity' => $item['quantity'],
-                    'available_stock'    => $stock ? $stock->quantity : 0,
-                ]);
-
-                if (! $stock) {
-                    Log::error('No stock record found for product in assigned duka', [
-                        'user_id'      => $user->id,
-                        'product_id'   => $item['product_id'],
-                        'product_name' => $product->name,
-                        'duka_id'      => $dukaId,
-                        'duka_name'    => $primaryAssignment->duka->name,
-                    ]);
-                    throw new \Exception("No stock available for product '{$product->name}' in your assigned duka '{$primaryAssignment->duka->name}'");
-                }
-
-                if ($stock->quantity < $item['quantity']) {
-                    Log::error('Insufficient stock for product', [
-                        'user_id'            => $user->id,
-                        'product_id'         => $item['product_id'],
-                        'product_name'       => $product->name,
-                        'duka_id'            => $dukaId,
-                        'requested_quantity' => $item['quantity'],
-                        'available_quantity' => $stock->quantity,
-                    ]);
-                    throw new \Exception("Insufficient stock for product '{$product->name}'. Available: {$stock->quantity}, Requested: {$item['quantity']}");
-                }
-
-                $itemTotal = ($item['unit_price'] * $item['quantity']) - ($item['discount_amount'] ?? 0);
-                $totalAmount += $itemTotal;
-
-                // Calculate profit (selling price - buying price)
-                $profit = ($item['unit_price'] - $product->base_price) * $item['quantity'];
-                $totalProfit += $profit;
-            }
-
-            // Apply overall discount
-            $finalTotal  = $totalAmount - ($request->discount_amount ?? 0);
-            $finalProfit = $totalProfit - ($request->discount_amount ?? 0);
-
-            // Create sale
-            $sale = Sale::create([
-                'tenant_id'       => $tenantId,
-                'duka_id'         => $dukaId,
-                'customer_id'     => $request->customer_id,
-                'total_amount'    => $finalTotal,
-                'discount_amount' => $request->discount_amount ?? 0,
-                'profit_loss'     => $finalProfit,
-                'is_loan'         => $request->boolean('is_loan', false),
-                'due_date'        => $request->due_date,
-                'discount_reason' => $request->discount_reason,
-            ]);
-
-            // Create sale items and update stock
-            foreach ($request->items as $item) {
-                $product = Product::where('id', $item['product_id'])
-                    ->where('tenant_id', $tenantId)
-                    ->firstOrFail();
-
-                $itemTotal = ($item['unit_price'] * $item['quantity']) - ($item['discount_amount'] ?? 0);
-
-                // Create sale item
-                $saleItem = SaleItem::create([
-                    'sale_id'         => $sale->id,
-                    'product_id'      => $item['product_id'],
-                    'quantity'        => $item['quantity'],
-                    'unit_price'      => $item['unit_price'],
-                    'discount_amount' => $item['discount_amount'] ?? 0,
-                    'total'           => $itemTotal,
-                ]);
-
-                Log::info('Sale item created', [
-                    'user_id'      => $user->id,
-                    'sale_id'      => $sale->id,
-                    'sale_item_id' => $saleItem->id,
-                    'product_id'   => $item['product_id'],
-                    'quantity'     => $item['quantity'],
-                ]);
-
-                // Update stock
-                $stock = Stock::where('product_id', $item['product_id'])
-                    ->where('duka_id', $dukaId)
-                    ->first();
-
-                if (! $stock) {
-                    Log::error('Stock not found during sale creation', [
-                        'user_id'    => $user->id,
-                        'product_id' => $item['product_id'],
-                        'duka_id'    => $dukaId,
-                    ]);
-                    throw new \Exception("Stock record not found for product {$product->name}");
-                }
-
-                $previousQuantity = $stock->quantity;
-                $newQuantity      = $previousQuantity - $item['quantity'];
-
-                // Update stock quantity
-                $stock->update(['quantity' => $newQuantity]);
-
-                Log::info('Stock updated for sale', [
-                    'user_id'           => $user->id,
-                    'stock_id'          => $stock->id,
-                    'product_id'        => $item['product_id'],
-                    'previous_quantity' => $previousQuantity,
-                    'new_quantity'      => $newQuantity,
-                    'quantity_sold'     => $item['quantity'],
-                ]);
-
-                // Record stock movement
-                $stockMovement = StockMovement::create([
-                    'stock_id'          => $stock->id,
-                    'user_id'           => $user->id,
-                    'type'              => 'remove',
-                    'quantity_change'   => -$item['quantity'],
-                    'previous_quantity' => $previousQuantity,
-                    'new_quantity'      => $newQuantity,
-                    'reason'            => 'Sale #' . $sale->id,
-                ]);
-
-                Log::info('Stock movement recorded', [
-                    'user_id'           => $user->id,
-                    'stock_movement_id' => $stockMovement->id,
-                    'stock_id'          => $stock->id,
-                    'quantity_change'   => -$item['quantity'],
-                ]);
-            }
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Sale created successfully',
-                'data'    => [
-                    'sale' => [
-                        'id'              => $sale->id,
-                        'total_amount'    => $sale->total_amount,
-                        'discount_amount' => $sale->discount_amount,
-                        'profit_loss'     => $sale->profit_loss,
-                        'is_loan'         => $sale->is_loan,
-                        'due_date'        => $sale->due_date,
-                        'item_count'      => $sale->saleItems->count(),
-                        'created_at'      => $sale->created_at,
-                    ],
-                ],
-            ], 201);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['error' => $e->getMessage()], 400);
-        }
-    }
 
     // Get Sale Details API
     public function apiGetSale($id)
@@ -2401,10 +2071,7 @@ class OfficerApiController extends Controller
     {
         $user = auth()->user();
 
-        // Verify user is an officer
-        if (! $user->hasRole('officer')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+
 
         // Get tenant IDs for this officer
         $tenantIds = TenantOfficer::where('officer_id', $user->id)
@@ -2497,18 +2164,13 @@ class OfficerApiController extends Controller
         ]);
     }
 
-    // Create Customer API
+
     public function apiCreateCustomer(Request $request)
     {
         $user = auth()->user();
 
-        // Verify user is an officer
-        if (! $user->hasRole('officer')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        $request->validate([
-            'duka_id' => 'nullable|exists:dukas,id',
+        // 1. Basic Validation (Removed duka_id from validation since we won't use it from request)
+        $validator = Validator::make($request->all(), [
             'name'    => 'required|string|max:255',
             'email'   => 'nullable|email|unique:customers,email',
             'phone'   => 'nullable|string|max:20',
@@ -2516,64 +2178,62 @@ class OfficerApiController extends Controller
             'status'  => 'nullable|in:active,inactive',
         ]);
 
-        // Get tenant ID from officer's assignments
-        $assignment = TenantOfficer::where('officer_id', $user->id)
+        if ($validator->fails()) {
+            Log::warning("Customer validation failed", [
+                'officer_id' => $user->id,
+                'errors' => $validator->errors()->toArray()
+            ]);
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        // 2. Fetch the Duka assignment using Auth ID
+        // We look for the active assignment for this specific officer
+        $assignment = \App\Models\TenantOfficer::where('officer_id', $user->id)
             ->where('status', true)
+            ->with('duka') // Eager load duka info
             ->first();
 
-        if (! $assignment) {
-            return response()->json(['error' => 'No active assignments found'], 403);
+        if (!$assignment) {
+            Log::error("Creation failed: Officer has no active Duka assignment", ['officer_id' => $user->id]);
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not assigned to any active shop. Please contact your administrator.'
+            ], 403);
         }
 
+        // 3. Extract Tenant and Duka from the official assignment
         $tenantId = $assignment->tenant_id;
+        $dukaId   = $assignment->duka_id;
 
-        // If duka_id is provided, verify officer is assigned to it
-        if ($request->duka_id) {
-            $dukaAssignment = TenantOfficer::where('officer_id', $user->id)
-                ->where('duka_id', $request->duka_id)
-                ->where('status', true)
-                ->exists();
-
-            if (! $dukaAssignment) {
-                return response()->json(['error' => 'You are not assigned to this duka'], 403);
-            }
-        }
-
-        $customer = Customer::create([
-            'tenant_id'  => $tenantId,
-            'duka_id'    => $request->duka_id,
-            'name'       => $request->name,
-            'email'      => $request->email,
-            'phone'      => $request->phone,
-            'address'    => $request->address,
-            'status'     => $request->status ?? 'active',
-            'created_by' => $user->id,
+        Log::info("Assigning customer to officer's official Duka", [
+            'officer_id' => $user->id,
+            'duka_id'    => $dukaId,
+            'tenant_id'  => $tenantId
         ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Customer created successfully',
-            'data'    => [
-                'customer' => [
-                    'id'           => $customer->id,
-                    'tenant_id'    => $customer->tenant_id,
-                    'duka_id'      => $customer->duka_id,
-                    'duka_name'    => $customer->duka ? $customer->duka->name : null,
-                    'name'         => $customer->name,
-                    'email'        => $customer->email,
-                    'phone'        => $customer->phone,
-                    'address'      => $customer->address,
-                    'status'       => $customer->status,
-                    'total_sales'  => 0,
-                    'total_amount' => 0,
-                    'created_by'   => $customer->created_by,
-                    'creator_name' => $customer->creator->name,
-                    'created_at'   => $customer->created_at,
-                ],
-            ],
-        ], 201);
-    }
+        // 4. Create Customer
+        try {
+            $customer = \App\Models\Customer::create([
+                'tenant_id'  => $tenantId,
+                'duka_id'    => $dukaId, // Always use the assigned Duka ID
+                'name'       => $request->name,
+                'email'      => $request->email,
+                'phone'      => $request->phone,
+                'address'    => $request->address,
+                'status'     => $request->status ?? 'active',
+                'created_by' => $user->id,
+            ]);
 
+            return response()->json([
+                'success' => true,
+                'message' => 'Customer created and assigned to ' . ($assignment->duka->name ?? 'your shop'),
+                'data'    => $customer->load('duka:id,name')
+            ], 201);
+        } catch (\Exception $e) {
+            Log::error("Critical Save Error: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Server error while saving customer.'], 500);
+        }
+    }
     // Get Customer Details API
     public function apiGetCustomer($id)
     {
@@ -2849,7 +2509,7 @@ class OfficerApiController extends Controller
         // Get or create tenant account
         $tenantAccount = TenantAccount::firstOrCreate(
             ['tenant_id' => $tenantId],
-            ['company_name' => 'Default Company']// Default company name
+            ['company_name' => 'Default Company'] // Default company name
         );
 
         // Update only the provided fields
@@ -3039,7 +2699,7 @@ class OfficerApiController extends Controller
         // Get or create tenant account
         $tenantAccount = TenantAccount::firstOrCreate(
             ['tenant_id' => $tenantId],
-            ['company_name' => 'Default Company']// Default company name
+            ['company_name' => 'Default Company'] // Default company name
         );
 
         // Handle logo upload
@@ -3368,7 +3028,6 @@ class OfficerApiController extends Controller
                     ],
                 ],
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['error' => 'Failed to record payment: ' . $e->getMessage()], 500);
@@ -3562,7 +3221,6 @@ class OfficerApiController extends Controller
                     ] : null,
                 ],
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['error' => 'Failed to update payment: ' . $e->getMessage()], 500);
@@ -3648,7 +3306,6 @@ class OfficerApiController extends Controller
                     ],
                 ],
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['error' => 'Failed to delete payment: ' . $e->getMessage()], 500);
@@ -3812,19 +3469,23 @@ class OfficerApiController extends Controller
         ], 201);
     }
 
-    /**
-     * Get product items by product ID with filtering and pagination.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $productId
-     * @return \Illuminate\Http\JsonResponse
-     */
 
-    /**
-     * Create a new product item.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
+    public function apiDeleteCustomer(Customer $customer): JsonResponse
+    {
+        try {
+            // The LogsActivity trait will automatically log this 'deleted' event
+            $customer->delete();
 
+            return response()->json([
+                'success' => true,
+                'message' => 'Customer deleted successfully.'
+            ], Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete customer.',
+                'error' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
 }
