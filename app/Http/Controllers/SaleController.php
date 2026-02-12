@@ -109,14 +109,19 @@ class SaleController extends Controller
         $user = auth()->user();
         $duka = \App\Models\Duka::where('tenant_id', $user->tenant->id)->findOrFail($dukaId);
 
-        // Products & Categories Only
+        // Products & Categories
         $categories = ProductCategory::where('tenant_id', $user->tenant->id)->get();
-
         $productsQuery = Product::where('tenant_id', $user->tenant->id)
             ->where('duka_id', $dukaId)
             ->where('is_active', true);
 
-        // Search (Products Only)
+        // Services & Categories
+        $serviceCategories = ServiceCategory::where('tenant_id', $user->tenant->id)->get();
+        $services = Service::where('tenant_id', $user->tenant->id)
+            ->where('duka_id', $dukaId)
+            ->limit(24)->get(); // Initial limit
+
+        // Search (Products Only - initial load)
         if ($request->has('search') && !empty($request->search)) {
             $search = $request->search;
             $productsQuery->where(function ($q) use ($search) {
@@ -135,17 +140,39 @@ class SaleController extends Controller
 
         // Get Stock for these products
         $productIds = $products->pluck('id');
-        $stocks = Stock::where('duka_id', $dukaId)->whereIn('product_id', $productIds)->pluck('quantity', 'product_id');
+        $dbStocks = Stock::where('duka_id', $dukaId)->whereIn('product_id', $productIds)->pluck('quantity', 'product_id');
 
         // Shared Cart
         $cart = session()->get("cart_{$dukaId}", []);
         $total = collect($cart)->sum('total');
 
+        // Adjust stocks based on cart
+        $stocks = $dbStocks->map(function ($qty, $productId) use ($cart) {
+            $cartKey = 'p_' . $productId;
+            if (isset($cart[$cartKey])) {
+                return max(0, $qty - $cart[$cartKey]['quantity']);
+            }
+            return $qty;
+        });
+
         if ($request->ajax()) {
+            // Determine if requesting products or services
+            if ($request->get('type') === 'service') {
+                $servicesQuery = Service::where('tenant_id', $user->tenant->id)->where('duka_id', $dukaId);
+                if ($request->filled('search')) {
+                    $servicesQuery->where('name', 'like', "%{$request->search}%");
+                }
+                if ($request->filled('category_id')) {
+                    $servicesQuery->where('category_id', $request->category_id);
+                }
+                $services = $servicesQuery->limit(24)->get();
+                return view('sale.partials.service-list', compact('services'))->render();
+            }
+
             return view('sale.partials.product-list', compact('products', 'stocks', 'duka'))->render();
         }
 
-        return view('sale.process_normal', compact('duka', 'categories', 'products', 'stocks', 'cart', 'total'));
+        return view('sale.process_normal', compact('duka', 'categories', 'products', 'stocks', 'cart', 'total', 'services', 'serviceCategories'));
     }
 
     public function processProducts(Request $request, $dukaId)
@@ -252,7 +279,12 @@ class SaleController extends Controller
         session()->put($cartKey, $cart);
 
         if ($request->ajax()) {
-            return $this->getCartResponse($dukaId);
+            // Calculate new stock for the specific item
+            $newStock = null;
+            if ($type === 'product') {
+                $newStock = max(0, $available - ($currentQty + 1));
+            }
+            return $this->getCartResponse($dukaId, ['productId' => $itemId, 'newStock' => $newStock]);
         }
 
         return back();
@@ -269,7 +301,19 @@ class SaleController extends Controller
         }
 
         if ($request->ajax()) {
-            return $this->getCartResponse($dukaId);
+            // Calculate new stock if it was a product
+            $productId = null;
+            $newStock = null;
+
+            if (Str::startsWith($itemKey, 'p_')) {
+                $productId = substr($itemKey, 2);
+                $stock = Stock::where('duka_id', $dukaId)->where('product_id', $productId)->first();
+                // Item removed from cart, so available stock is back to DB value (minus any other instances if logic allowed, but here key is unique)
+                // Actually, if we just removed it, the stock available is the DB value. 
+                // Wait, we need to know if there are *other* entries? No, cart key is unique per product.
+                $newStock = $stock ? $stock->quantity : 0;
+            }
+            return $this->getCartResponse($dukaId, ['productId' => $productId, 'newStock' => $newStock]);
         }
 
         return back();
@@ -286,7 +330,7 @@ class SaleController extends Controller
         return back();
     }
 
-    private function getCartResponse($dukaId)
+    private function getCartResponse($dukaId, $additionalData = [])
     {
         $cart = session()->get("cart_{$dukaId}", []);
         $total = 0;
@@ -297,18 +341,21 @@ class SaleController extends Controller
 
         $html = view('sale.partials.cart-items', compact('cart', 'duka'))->render();
 
-        return response()->json([
+        $response = [
             'status' => 'success',
             'html' => $html,
             'total' => number_format($total),
             'cart_empty' => empty($cart)
-        ]);
+        ];
+
+        return response()->json(array_merge($response, $additionalData));
     }
 
     public function checkout(Request $request, $dukaId)
     {
         $request->validate([
             'amount_tendered' => 'nullable|numeric|min:0',
+            'discount_amount' => 'nullable|numeric|min:0',
         ]);
 
         $user = auth()->user();
@@ -319,16 +366,26 @@ class SaleController extends Controller
             return back()->with('error', 'Cart is empty.');
         }
 
-        // Re-calculate Total
-        $total = 0;
+        // Re-calculate Subtotal (from Cart Items)
+        $subtotal = 0;
         foreach ($cart as $item) {
-            $total += $item['total'];
+            $subtotal += $item['total'];
         }
 
-        // Use tendered amount if provided, otherwise assume exact cash (total)
-        $amountTendered = $request->filled('amount_tendered') ? $request->amount_tendered : $total;
+        // Apply Discount
+        $discount = $request->filled('discount_amount') ? $request->discount_amount : 0;
 
-        if ($amountTendered < $total && !$request->has('is_loan')) {
+        // Ensure discount doesn't exceed subtotal
+        if ($discount > $subtotal) {
+            return back()->with('error', 'Discount cannot be greater than the total amount.');
+        }
+
+        $finalTotal = $subtotal - $discount;
+
+        // Use tendered amount if provided, otherwise assume exact cash (final total)
+        $amountTendered = $request->filled('amount_tendered') ? $request->amount_tendered : $finalTotal;
+
+        if ($amountTendered < $finalTotal && !$request->has('is_loan')) {
             return back()->with('error', 'Amount tendered is less than total (and not marked as loan).');
         }
 
@@ -339,9 +396,10 @@ class SaleController extends Controller
                 'tenant_id' => $user->tenant->id,
                 'duka_id' => $dukaId,
                 'customer_id' => $request->customer_id ?? null,
-                'total_amount' => $total,
+                'total_amount' => $finalTotal, // Store the discounted total
+                'discount_amount' => $discount,
                 'amount_tendered' => $amountTendered,
-                'change_amount' => max(0, $amountTendered - $total),
+                'change_amount' => max(0, $amountTendered - $finalTotal),
                 'is_loan' => $request->has('is_loan'),
                 'created_by' => $user->id,
             ]);
@@ -446,14 +504,18 @@ class SaleController extends Controller
             }
 
             // Update Profit/Loss
-            $sale->update(['profit_loss' => $total - $totalCogs]);
+            $sale->update([
+                'profit_loss' => $finalTotal - $totalCogs,
+                'remaining_balance' => $request->has('is_loan') ? ($finalTotal - $amountTendered) : 0,
+                'payment_status' => $request->has('is_loan') ? (($finalTotal - $amountTendered) <= 0 ? 'Fully Paid' : 'Partially Paid') : 'N/A'
+            ]);
 
             Transaction::create([
                 'duka_id' => $dukaId,
                 'user_id' => $user->id,
                 'type' => 'income',
                 'category' => 'sale',
-                'amount' => $total,
+                'amount' => $finalTotal,
                 'status' => 'active',
                 'reference_id' => $sale->id,
                 'transaction_date' => now()->toDateString(),

@@ -449,6 +449,7 @@
     </main>
 
     <!-- Checkout Modal same as products -->
+    <!-- Checkout Modal same as products -->
     <div class="modal fade" id="checkoutModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
@@ -460,14 +461,40 @@
                     <div class="modal-body p-4">
                         <div class="bg-light p-4 rounded-4 text-center mb-4">
                             <p class="text-muted small fw-bold mb-1">TOTAL PAYABLE</p>
-                            <h2 class="fw-bold text-primary mb-0">Tsh {{ number_format($total) }}</h2>
+                            <h2 class="fw-bold text-primary mb-0" id="modal-total-display">Tsh {{ number_format($total) }}</h2>
                         </div>
-                        <div class="mb-3"><label class="form-label small fw-bold text-muted">Customer Details</label><select name="customer_id" class="form-select border-0 bg-light rounded-3 p-3">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Customer Details</label>
+                            <select name="customer_id" class="form-select border-0 bg-light rounded-3 p-3">
                                 <option value="">Walk-in Customer</option>@foreach(\App\Models\Customer::where('tenant_id', auth()->user()->tenant->id)->get() as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach
-                            </select></div>
+                            </select>
+                        </div>
+
+                        <!-- Discount & Amount Tendered Row -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-muted">Discount Check (Tsh)</label>
+                                <input type="number" name="discount_amount" id="discount-input" class="form-control border-0 bg-light rounded-3 p-3" placeholder="0" min="0">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-muted">Amount Tendered</label>
+                                <input type="number" name="amount_tendered" id="tendered-input" class="form-control border-0 bg-light rounded-3 p-3" placeholder="0" min="0">
+                            </div>
+                        </div>
+
+                        <!-- Live Calc Display -->
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small fw-bold">Grand Total:</span>
+                            <span class="fw-bold text-dark" id="grand-total-display">Tsh {{ number_format($total) }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="text-muted small fw-bold">Change:</span>
+                            <span class="fw-bold text-success" id="change-display">Tsh 0</span>
+                        </div>
+
                         <div class="form-check form-switch p-0 m-0 d-flex align-items-center justify-content-between"><label class="form-check-label fw-bold text-muted small" for="isLoan">Mark as Outstanding (Loan)</label><input class="form-check-input ms-0" type="checkbox" id="isLoan" name="is_loan" style="width: 40px; height: 20px;"></div>
                     </div>
-                    <div class="modal-footer border-0 p-4 pt-0"><button type="submit" class="sf-checkout-btn sf-pay-btn mb-0 shadow-none" style="background: #3a57e8;">Confirm Payment</button></div>
+                    <div class="modal-footer border-0 p-4 pt-0"><button type="submit" class="sf-checkout-btn sf-pay-btn mb-0 shadow-none border-0 w-100 py-3 rounded-3 fw-bold text-white" style="background: #3a57e8;">Confirm Payment</button></div>
                 </form>
             </div>
         </div>
@@ -482,7 +509,7 @@
                 document.querySelectorAll('#cart-total').forEach(el => el.innerText = 'Tsh ' + data.total);
                 const btn = document.getElementById('checkout-btn');
                 if (btn) btn.disabled = data.cart_empty;
-                window.location.reload();
+                // window.location.reload(); // Removed to prevent refresh
             }
         };
         document.body.addEventListener('submit', function(e) {
@@ -498,6 +525,54 @@
                     .then(r => r.json()).then(updateUI).catch(console.error);
             }
         });
+
+        // Checkout Modal Calculations
+        const checkoutModal = document.getElementById('checkoutModal');
+        if (checkoutModal) {
+            const modalTotalDisplay = document.getElementById('modal-total-display');
+            const grandTotalDisplay = document.getElementById('grand-total-display');
+            const changeDisplay = document.getElementById('change-display');
+            const discountInput = document.getElementById('discount-input');
+            const tenderedInput = document.getElementById('tendered-input');
+
+            function updateCalculations() {
+                // Get numeric value from text (remove 'Tsh ' and commas)
+                let baseTotalText = modalTotalDisplay.innerText.replace(/[^0-9.-]+/g, "");
+                let baseTotal = parseFloat(baseTotalText) || 0;
+
+                const discount = parseFloat(discountInput.value) || 0;
+                const tendered = parseFloat(tenderedInput.value) || 0;
+
+                // Calc Grand Total
+                let grandTotal = Math.max(0, baseTotal - discount);
+                grandTotalDisplay.innerText = 'Tsh ' + grandTotal.toLocaleString();
+
+                // Calc Change
+                let change = Math.max(0, tendered - grandTotal);
+                changeDisplay.innerText = 'Tsh ' + change.toLocaleString();
+
+                // Visual feedback
+                if (tendered > 0 && tendered < grandTotal) {
+                    changeDisplay.classList.remove('text-success');
+                    changeDisplay.classList.add('text-danger');
+                    changeDisplay.innerText = 'Insufficient';
+                } else {
+                    changeDisplay.classList.remove('text-danger');
+                    changeDisplay.classList.add('text-success');
+                }
+            }
+
+            discountInput.addEventListener('input', updateCalculations);
+            tenderedInput.addEventListener('input', updateCalculations);
+
+            // Observer for when the modal total updates via AJAX
+            const observer = new MutationObserver(updateCalculations);
+            observer.observe(modalTotalDisplay, {
+                childList: true,
+                characterData: true,
+                subtree: true
+            });
+        }
     });
 </script>
 @endsection

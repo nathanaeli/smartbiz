@@ -12,10 +12,18 @@ return new class extends Migration
     public function up()
     {
         Schema::table('activity_log', function (Blueprint $table) {
-            $table->unsignedBigInteger('tenant_id')->nullable()->after('causer_id')->index();
-            $table->unsignedBigInteger('duka_id')->nullable()->after('tenant_id')->index();
-            $table->string('ip_address', 45)->nullable()->after('properties');
-            $table->text('user_agent')->nullable()->after('ip_address');
+            if (!Schema::hasColumn('activity_log', 'tenant_id')) {
+                $table->unsignedBigInteger('tenant_id')->nullable()->after('causer_id')->index();
+            }
+            if (!Schema::hasColumn('activity_log', 'duka_id')) {
+                $table->unsignedBigInteger('duka_id')->nullable()->after('tenant_id')->index();
+            }
+            if (!Schema::hasColumn('activity_log', 'ip_address')) {
+                $table->string('ip_address', 45)->nullable()->after('properties');
+            }
+            if (!Schema::hasColumn('activity_log', 'user_agent')) {
+                $table->text('user_agent')->nullable()->after('ip_address');
+            }
         });
     }
 
